@@ -7,6 +7,25 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Official release
+            sdk-channel: release
+
+          - name: Official dev
+            sdk-channel: dev
+
+          - name: Momentum release
+            sdk-channel: release
+            sdk-index-url: https://up.momentum-fw.dev/firmware/directory.json
+
+          - name: Momentum dev
+            sdk-channel: dev
+            sdk-index-url: https://up.momentum-fw.dev/firmware/directory.json
+
+    name: Build (${{ matrix.name }})
 
     steps:
       - name: Checkout repo
@@ -16,3 +35,5 @@ jobs:
         uses: flipperdevices/flipperzero-ufbt-action@v0.1.3
         with:
           app-dir: .
+          sdk-channel: ${{ matrix.sdk-channel }}
+          sdk-index-url: ${{ matrix.sdk-index-url }}
