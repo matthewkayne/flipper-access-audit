@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "observation.h"
 
 typedef enum {
     SeverityInfo = 0,
@@ -14,3 +15,5 @@ typedef struct {
     uint8_t confidence;
     Severity max_severity;
 } AuditScore;
+
+AuditScore score_observation(const AccessObservation* obs);
