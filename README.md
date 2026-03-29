@@ -21,7 +21,7 @@ Classify a credential, apply simple audit heuristics, and show a human-readable 
 
 - [x] Repo created
 - [x] uFBT build working
-- [ ] GitHub Actions build test
+- [x] GitHub Actions build test
 - [ ] Hardcoded scoring path
 - [ ] First UI result screen
 - [ ] NFC integration
