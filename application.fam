@@ -4,7 +4,7 @@ App(
     apptype=FlipperAppType.EXTERNAL,
     entry_point="access_audit_app",
     sources=["*.c"],
-    requires=["gui"],
+    requires=["gui", "nfc"],
     stack_size=2 * 1024,
     fap_category="Tools",
 )
