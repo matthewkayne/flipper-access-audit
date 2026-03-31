@@ -5,6 +5,7 @@
 #include "access_audit.h"
 #include "core/observation.h"
 #include "core/scoring.h"
+#include "core/sample_data.h"
 
 typedef struct {
     ViewPort* view_port;
@@ -70,16 +71,7 @@ int32_t access_audit_app(void* p) {
         return -1;
     }
 
-    app->obs = (AccessObservation){
-        .tech = TechTypeNfc13Mhz,
-        .card_type = CardTypeMifareClassic,
-        .uid_present = true,
-        .user_memory_present = false,
-        .repeated_reads_identical = true,
-        .metadata_complete = true,
-        .uid_len = 4,
-        .uid = {0xDE, 0xAD, 0xBE, 0xEF},
-    };
+    app->obs = sample_observation_mifare_classic();
 
     app->score = score_observation(&app->obs);
 
