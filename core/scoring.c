@@ -1,5 +1,4 @@
 #include "scoring.h"
-#include "observation.h"
 #include "rules.h"
 
 static uint8_t severity_points(Severity severity) {
@@ -20,7 +19,7 @@ static uint8_t severity_points(Severity severity) {
 AuditScore score_observation(const AccessObservation* obs) {
     AuditScore result = {
         .score = 0,
-        .confidence = 80,
+        .confidence = 90,
         .max_severity = SeverityInfo,
     };
 
@@ -48,4 +47,36 @@ AuditScore score_observation(const AccessObservation* obs) {
 
     if(result.score > 100) result.score = 100;
     return result;
+}
+
+const char* severity_to_string(Severity severity) {
+    switch(severity) {
+    case SeverityInfo:
+        return "Info";
+    case SeverityLow:
+        return "Low";
+    case SeverityMedium:
+        return "Medium";
+    case SeverityHigh:
+        return "High";
+    default:
+        return "Unknown";
+    }
+}
+
+const char* card_type_to_string(CardType type) {
+    switch(type) {
+    case CardTypeEm4100Like:
+        return "EM4100-like";
+    case CardTypeHidProxLike:
+        return "HID Prox-like";
+    case CardTypeMifareClassic:
+        return "MIFARE Classic";
+    case CardTypeMifareUltralight:
+        return "MIFARE Ultralight";
+    case CardTypeNtagLike:
+        return "NTAG-like";
+    default:
+        return "Unknown";
+    }
 }
