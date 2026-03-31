@@ -6,6 +6,7 @@
 #include "core/observation.h"
 #include "core/scoring.h"
 #include "core/sample_data.h"
+#include "core/observation_provider.h"
 
 typedef struct {
     ViewPort* view_port;
@@ -71,7 +72,9 @@ int32_t access_audit_app(void* p) {
         return -1;
     }
 
-    app->obs = sample_observation_mifare_classic();
+    if(!observation_provider_get_demo(&app->obs)) {
+    app->obs = sample_observation_unknown();
+    }
 
     app->score = score_observation(&app->obs);
 
