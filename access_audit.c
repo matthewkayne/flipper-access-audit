@@ -5,6 +5,7 @@
 #include "access_audit.h"
 #include "core/observation.h"
 #include "core/scoring.h"
+#include "core/session.h"
 #include "core/observation_provider.h"
 
 typedef enum {
@@ -16,6 +17,7 @@ typedef struct {
     ViewPort* view_port;
     FuriMessageQueue* event_queue;
     ObservationProvider* provider;
+    ScanSession session;
     AccessObservation obs;
     AuditScore score;
     AccessAuditScreen screen;
@@ -104,6 +106,11 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
     canvas_set_font(canvas, FontPrimary);
     canvas_draw_str(canvas, 2, 10, "Access Audit");
 
+    /* Session card count, right-aligned */
+    canvas_set_font(canvas, FontSecondary);
+    snprintf(line, sizeof(line), "[%u]", (unsigned)app->session.count);
+    canvas_draw_str_aligned(canvas, 126, 10, AlignRight, AlignBottom, line);
+
     canvas_draw_line(canvas, 0, 13, 127, 13);
 
     /* Card type */
@@ -157,6 +164,7 @@ int32_t access_audit_app(void* p) {
         return -1;
     }
 
+    session_init(&app->session);
     access_audit_reset_to_scan(app);
 
     app->view_port = view_port_alloc();
@@ -179,6 +187,7 @@ int32_t access_audit_app(void* p) {
             if(observation_provider_poll(app->provider, &candidate)) {
                 app->obs = candidate;
                 app->score = score_observation(&app->obs);
+                session_append(&app->session, &app->obs, &app->score);
                 app->screen = AccessAuditScreenResult;
                 view_port_update(app->view_port);
             }
