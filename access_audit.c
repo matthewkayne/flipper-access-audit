@@ -6,11 +6,13 @@
 #include "core/observation.h"
 #include "core/scoring.h"
 #include "core/session.h"
+#include "core/report.h"
 #include "core/observation_provider.h"
 
 typedef enum {
     AccessAuditScreenScan,
     AccessAuditScreenResult,
+    AccessAuditScreenSaved,
 } AccessAuditScreen;
 
 typedef struct {
@@ -21,6 +23,7 @@ typedef struct {
     AccessObservation obs;
     AuditScore score;
     AccessAuditScreen screen;
+    int saved_ticks; /* countdown to auto-exit after save confirmation */
 } AccessAuditApp;
 
 typedef enum {
@@ -96,6 +99,23 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
         canvas_draw_str(canvas, 2, 26, "Tap NFC card...");
         canvas_draw_str(canvas, 2, 38, "Scanning");
         canvas_draw_str(canvas, 2, 62, "Back: exit");
+        return;
+    }
+
+    if(app->screen == AccessAuditScreenSaved) {
+        char line[48];
+
+        canvas_set_font(canvas, FontPrimary);
+        canvas_draw_str(canvas, 2, 10, "Access Audit");
+
+        canvas_draw_line(canvas, 0, 13, 127, 13);
+
+        canvas_draw_str(canvas, 2, 32, "Report saved");
+
+        canvas_set_font(canvas, FontSecondary);
+        snprintf(line, sizeof(line), "%u card(s) written to SD", (unsigned)app->session.count);
+        canvas_draw_str(canvas, 2, 46, line);
+        canvas_draw_str(canvas, 2, 62, "Press any key to exit");
         return;
     }
 
@@ -182,6 +202,14 @@ int32_t access_audit_app(void* p) {
     AccessAuditEvent event;
 
     while(running) {
+        /* Auto-exit after the save confirmation screen. Each queue timeout
+           is ~100 ms so 12 ticks ≈ 1.2 s. */
+        if(app->screen == AccessAuditScreenSaved) {
+            if(--app->saved_ticks <= 0) {
+                running = false;
+            }
+        }
+
         if(app->screen == AccessAuditScreenScan) {
             AccessObservation candidate;
             if(observation_provider_poll(app->provider, &candidate)) {
@@ -205,8 +233,19 @@ int32_t access_audit_app(void* p) {
                         observation_provider_start(app->provider);
                         view_port_update(app->view_port);
                     } else if(event.input.key == InputKeyBack) {
-                        running = false;
+                        if(app->session.count > 0) {
+                            observation_provider_stop(app->provider);
+                            report_save_session(&app->session);
+                            app->screen = AccessAuditScreenSaved;
+                            app->saved_ticks = 12;
+                            view_port_update(app->view_port);
+                        } else {
+                            running = false;
+                        }
                     }
+                } else if(app->screen == AccessAuditScreenSaved) {
+                    /* Any key press skips the countdown and exits immediately. */
+                    running = false;
                 }
             }
         }
