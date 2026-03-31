@@ -16,6 +16,7 @@ typedef enum {
 typedef struct {
     ViewPort* view_port;
     FuriMessageQueue* event_queue;
+    ObservationProvider* provider;
     AccessObservation obs;
     AuditScore score;
     bool used_demo_data;
@@ -78,8 +79,9 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
         canvas_draw_str(canvas, 2, 12, "Access Audit");
 
         canvas_set_font(canvas, FontSecondary);
-        canvas_draw_str(canvas, 2, 30, "Tap NFC card...");
-        canvas_draw_str(canvas, 2, 44, "Back: Demo mode");
+        canvas_draw_str(canvas, 2, 28, "Tap NFC card...");
+        canvas_draw_str(canvas, 2, 42, "Scanning for card");
+        canvas_draw_str(canvas, 2, 56, "Back: Demo mode");
         return;
     }
 
@@ -108,7 +110,8 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
     snprintf(line, sizeof(line), "Src: %s", app->used_demo_data ? "Demo" : "NFC");
     canvas_draw_str(canvas, 2, 54, line);
 
-    canvas_draw_str(canvas, 2, 64, "OK: Rescan  Back: Exit");
+    snprintf(line, sizeof(line), "Meta: %s", app->obs.metadata_complete ? "stable" : "partial");
+    canvas_draw_str(canvas, 2, 64, line);
 }
 
 static void access_audit_input_callback(InputEvent* input_event, void* context) {
@@ -134,6 +137,13 @@ int32_t access_audit_app(void* p) {
         return -1;
     }
 
+    app->provider = observation_provider_alloc();
+    if(!app->provider) {
+        furi_message_queue_free(app->event_queue);
+        free(app);
+        return -1;
+    }
+
     access_audit_reset_to_scan(app);
 
     app->view_port = view_port_alloc();
@@ -145,12 +155,16 @@ int32_t access_audit_app(void* p) {
 
     view_port_update(app->view_port);
 
+    observation_provider_start(app->provider);
+
     bool running = true;
     AccessAuditEvent event;
 
     while(running) {
         if(app->screen == AccessAuditScreenScan) {
-            if(observation_provider_get_from_nfc(&app->obs)) {
+            AccessObservation candidate;
+            if(observation_provider_poll(app->provider, &candidate)) {
+                app->obs = candidate;
                 app->used_demo_data = false;
                 app->score = score_observation(&app->obs);
                 app->screen = AccessAuditScreenResult;
@@ -159,31 +173,33 @@ int32_t access_audit_app(void* p) {
         }
 
         if(furi_message_queue_get(app->event_queue, &event, 100) == FuriStatusOk) {
-            if(event.type == AccessAuditEventTypeInput) {
-                if(event.input.type == InputTypeShort) {
-                    if(app->screen == AccessAuditScreenScan) {
-                        if(event.input.key == InputKeyBack) {
-                            app->used_demo_data = true;
-                            if(observation_provider_get_demo(&app->obs)) {
-                                app->score = score_observation(&app->obs);
-                                app->screen = AccessAuditScreenResult;
-                                view_port_update(app->view_port);
-                            } else {
-                                running = false;
-                            }
-                        }
-                    } else if(app->screen == AccessAuditScreenResult) {
-                        if(event.input.key == InputKeyOk) {
-                            access_audit_reset_to_scan(app);
+            if(event.type == AccessAuditEventTypeInput && event.input.type == InputTypeShort) {
+                if(app->screen == AccessAuditScreenScan) {
+                    if(event.input.key == InputKeyBack) {
+                        observation_provider_stop(app->provider);
+                        app->used_demo_data = true;
+                        if(observation_provider_get_demo(&app->obs)) {
+                            app->score = score_observation(&app->obs);
+                            app->screen = AccessAuditScreenResult;
                             view_port_update(app->view_port);
-                        } else if(event.input.key == InputKeyBack) {
+                        } else {
                             running = false;
                         }
+                    }
+                } else if(app->screen == AccessAuditScreenResult) {
+                    if(event.input.key == InputKeyOk) {
+                        access_audit_reset_to_scan(app);
+                        observation_provider_start(app->provider);
+                        view_port_update(app->view_port);
+                    } else if(event.input.key == InputKeyBack) {
+                        running = false;
                     }
                 }
             }
         }
     }
+
+    observation_provider_free(app->provider);
 
     view_port_enabled_set(app->view_port, false);
     gui_remove_view_port(gui, app->view_port);
