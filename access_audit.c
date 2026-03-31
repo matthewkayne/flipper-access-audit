@@ -5,13 +5,14 @@
 #include "access_audit.h"
 #include "core/observation.h"
 #include "core/scoring.h"
-#include "core/sample_data.h"
+#include "core/observation_provider.h"
 
 typedef struct {
     ViewPort* view_port;
     FuriMessageQueue* event_queue;
     AccessObservation obs;
     AuditScore score;
+    bool used_demo_data;
 } AccessAuditApp;
 
 typedef enum {
@@ -44,7 +45,7 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
     snprintf(line, sizeof(line), "Conf: %u%%", app->score.confidence);
     canvas_draw_str(canvas, 2, 48, line);
 
-    snprintf(line, sizeof(line), "Risk: %s", severity_to_string(app->score.max_severity));
+    snprintf(line, sizeof(line), "Src: %s", app->used_demo_data ? "Demo" : "NFC");
     canvas_draw_str(canvas, 2, 60, line);
 }
 
@@ -71,7 +72,17 @@ int32_t access_audit_app(void* p) {
         return -1;
     }
 
-    app->obs = sample_observation_mifare_classic();
+    app->used_demo_data = false;
+
+    if(!observation_provider_get_from_nfc(&app->obs)) {
+        app->used_demo_data = true;
+
+        if(!observation_provider_get_demo(&app->obs)) {
+            furi_message_queue_free(app->event_queue);
+            free(app);
+            return -1;
+        }
+    }
 
     app->score = score_observation(&app->obs);
 
