@@ -17,3 +17,5 @@ typedef struct {
 } AuditScore;
 
 AuditScore score_observation(const AccessObservation* obs);
+const char* severity_to_string(Severity severity);
+const char* card_type_to_string(CardType type);
