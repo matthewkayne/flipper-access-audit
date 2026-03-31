@@ -5,7 +5,13 @@
 #include "access_audit.h"
 #include "core/observation.h"
 #include "core/scoring.h"
+#include "core/sample_data.h"
 #include "core/observation_provider.h"
+
+typedef enum {
+    AccessAuditScreenScan,
+    AccessAuditScreenResult,
+} AccessAuditScreen;
 
 typedef struct {
     ViewPort* view_port;
@@ -13,6 +19,7 @@ typedef struct {
     AccessObservation obs;
     AuditScore score;
     bool used_demo_data;
+    AccessAuditScreen screen;
 } AccessAuditApp;
 
 typedef enum {
@@ -29,7 +36,7 @@ static void access_audit_format_uid_line(
     char* out,
     size_t out_size) {
     if(!obs->uid_present || obs->uid_len == 0) {
-        snprintf(out, out_size, "UID: none");
+        snprintf(out, out_size, "UID: unavailable");
         return;
     }
 
@@ -58,6 +65,16 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
     AccessAuditApp* app = context;
 
     canvas_clear(canvas);
+
+    if(app->screen == AccessAuditScreenScan) {
+        canvas_set_font(canvas, FontPrimary);
+        canvas_draw_str(canvas, 2, 12, "Access Audit");
+
+        canvas_set_font(canvas, FontSecondary);
+        canvas_draw_str(canvas, 2, 30, "Tap NFC card...");
+        canvas_draw_str(canvas, 2, 44, "Back: Demo mode");
+        return;
+    }
 
     canvas_set_font(canvas, FontPrimary);
     canvas_draw_str(canvas, 2, 10, "Access Audit");
@@ -111,17 +128,8 @@ int32_t access_audit_app(void* p) {
     }
 
     app->used_demo_data = false;
-
-    if(!observation_provider_get_from_nfc(&app->obs)) {
-        app->used_demo_data = true;
-
-        if(!observation_provider_get_demo(&app->obs)) {
-            furi_message_queue_free(app->event_queue);
-            free(app);
-            return -1;
-        }
-    }
-
+    app->screen = AccessAuditScreenScan;
+    app->obs = sample_observation_unknown();
     app->score = score_observation(&app->obs);
 
     app->view_port = view_port_alloc();
@@ -137,10 +145,30 @@ int32_t access_audit_app(void* p) {
     AccessAuditEvent event;
 
     while(running) {
-        if(furi_message_queue_get(app->event_queue, &event, FuriWaitForever) == FuriStatusOk) {
+        if(app->screen == AccessAuditScreenScan) {
+            if(observation_provider_get_from_nfc(&app->obs)) {
+                app->used_demo_data = false;
+                app->score = score_observation(&app->obs);
+                app->screen = AccessAuditScreenResult;
+                view_port_update(app->view_port);
+            }
+        }
+
+        if(furi_message_queue_get(app->event_queue, &event, 100) == FuriStatusOk) {
             if(event.type == AccessAuditEventTypeInput) {
                 if(event.input.type == InputTypeShort && event.input.key == InputKeyBack) {
-                    running = false;
+                    if(app->screen == AccessAuditScreenScan) {
+                        app->used_demo_data = true;
+                        if(observation_provider_get_demo(&app->obs)) {
+                            app->score = score_observation(&app->obs);
+                            app->screen = AccessAuditScreenResult;
+                            view_port_update(app->view_port);
+                        } else {
+                            running = false;
+                        }
+                    } else {
+                        running = false;
+                    }
                 }
             }
         }
