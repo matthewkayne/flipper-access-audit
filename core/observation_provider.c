@@ -11,9 +11,24 @@ static CardType protocol_to_card_type(NfcProtocol protocol) {
         return CardTypeMifareClassic;
     case NfcProtocolMfUltralight:
         return CardTypeMifareUltralight;
+    case NfcProtocolMfDesfire:
+        return CardTypeMifareDesfire;
+    case NfcProtocolMfPlus:
+        return CardTypeMifarePlus;
     case NfcProtocolIso14443_3a:
     case NfcProtocolIso14443_4a:
-        return CardTypeNtagLike;
+        return CardTypeIso14443A;
+    case NfcProtocolIso14443_3b:
+    case NfcProtocolIso14443_4b:
+        return CardTypeIso14443B;
+    case NfcProtocolIso15693_3:
+        return CardTypeIso15693;
+    case NfcProtocolFelica:
+        return CardTypeFelica;
+    case NfcProtocolSlix:
+        return CardTypeSlix;
+    case NfcProtocolSt25tb:
+        return CardTypeSt25tb;
     default:
         return CardTypeUnknown;
     }

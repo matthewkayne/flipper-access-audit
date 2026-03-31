@@ -17,6 +17,14 @@ typedef enum {
     CardTypeMifareClassic,
     CardTypeMifareUltralight,
     CardTypeNtagLike,
+    CardTypeMifareDesfire,
+    CardTypeMifarePlus,
+    CardTypeIso14443A,
+    CardTypeIso14443B,
+    CardTypeIso15693,
+    CardTypeFelica,
+    CardTypeSlix,
+    CardTypeSt25tb,
 } CardType;
 
 typedef struct {

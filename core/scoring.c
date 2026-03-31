@@ -76,6 +76,22 @@ const char* card_type_to_string(CardType type) {
         return "MIFARE Ultralight";
     case CardTypeNtagLike:
         return "NTAG-like";
+    case CardTypeMifareDesfire:
+        return "MIFARE DESFire";
+    case CardTypeMifarePlus:
+        return "MIFARE Plus";
+    case CardTypeIso14443A:
+        return "ISO14443-A";
+    case CardTypeIso14443B:
+        return "ISO14443-B";
+    case CardTypeIso15693:
+        return "ISO15693";
+    case CardTypeFelica:
+        return "FeliCa";
+    case CardTypeSlix:
+        return "SLIX";
+    case CardTypeSt25tb:
+        return "ST25TB";
     default:
         return "Unknown";
     }
