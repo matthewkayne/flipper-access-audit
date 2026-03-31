@@ -3,6 +3,10 @@ App(
     name="Access Audit",
     apptype=FlipperAppType.EXTERNAL,
     entry_point="access_audit_app",
+    sources=[
+        "*.c",
+        "core/*.c",
+    ],
     cdefines=["APP_ACCESS_AUDIT"],
     requires=["gui"],
     stack_size=2 * 1024,
