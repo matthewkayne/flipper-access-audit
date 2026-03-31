@@ -24,6 +24,36 @@ typedef struct {
     InputEvent input;
 } AccessAuditEvent;
 
+static void access_audit_format_uid_line(
+    const AccessObservation* obs,
+    char* out,
+    size_t out_size) {
+    if(!obs->uid_present || obs->uid_len == 0) {
+        snprintf(out, out_size, "UID: none");
+        return;
+    }
+
+    if(obs->uid_len <= 4) {
+        snprintf(
+            out,
+            out_size,
+            "UID: %02X %02X %02X %02X",
+            obs->uid[0],
+            obs->uid_len > 1 ? obs->uid[1] : 0,
+            obs->uid_len > 2 ? obs->uid[2] : 0,
+            obs->uid_len > 3 ? obs->uid[3] : 0);
+    } else {
+        snprintf(
+            out,
+            out_size,
+            "UID: %02X %02X %02X %02X...",
+            obs->uid[0],
+            obs->uid[1],
+            obs->uid[2],
+            obs->uid[3]);
+    }
+}
+
 static void access_audit_draw_callback(Canvas* canvas, void* context) {
     AccessAuditApp* app = context;
 
@@ -37,16 +67,24 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
     char line[64];
 
     snprintf(line, sizeof(line), "Type: %s", card_type_to_string(app->obs.card_type));
-    canvas_draw_str(canvas, 2, 24, line);
+    canvas_draw_str(canvas, 2, 20, line);
 
-    snprintf(line, sizeof(line), "Score: %u", app->score.score);
-    canvas_draw_str(canvas, 2, 36, line);
+    snprintf(
+        line,
+        sizeof(line),
+        "S:%u C:%u%% R:%s",
+        app->score.score,
+        app->score.confidence,
+        severity_to_string(app->score.max_severity));
+    canvas_draw_str(canvas, 2, 30, line);
 
-    snprintf(line, sizeof(line), "Conf: %u%%", app->score.confidence);
-    canvas_draw_str(canvas, 2, 48, line);
+    access_audit_format_uid_line(&app->obs, line, sizeof(line));
+    canvas_draw_str(canvas, 2, 42, line);
 
     snprintf(line, sizeof(line), "Src: %s", app->used_demo_data ? "Demo" : "NFC");
-    canvas_draw_str(canvas, 2, 60, line);
+    canvas_draw_str(canvas, 2, 54, line);
+
+    canvas_draw_str(canvas, 2, 64, "Back: Exit");
 }
 
 static void access_audit_input_callback(InputEvent* input_event, void* context) {
