@@ -69,6 +69,19 @@ static void access_audit_format_uid_line(
     }
 }
 
+static const char* risk_label(Severity severity) {
+    switch(severity) {
+    case SeverityHigh:
+        return "HIGH RISK";
+    case SeverityMedium:
+        return "MODERATE";
+    case SeverityLow:
+        return "LOW RISK";
+    default:
+        return "SECURE";
+    }
+}
+
 static void access_audit_draw_callback(Canvas* canvas, void* context) {
     AccessAuditApp* app = context;
 
@@ -76,42 +89,50 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
 
     if(app->screen == AccessAuditScreenScan) {
         canvas_set_font(canvas, FontPrimary);
-        canvas_draw_str(canvas, 2, 12, "Access Audit");
+        canvas_draw_str(canvas, 2, 10, "Access Audit");
+
+        canvas_draw_line(canvas, 0, 13, 127, 13);
 
         canvas_set_font(canvas, FontSecondary);
-        canvas_draw_str(canvas, 2, 28, "Tap NFC card...");
-        canvas_draw_str(canvas, 2, 42, "Scanning for card");
-        canvas_draw_str(canvas, 2, 56, "Back: Demo mode");
+        canvas_draw_str(canvas, 2, 26, "Tap NFC card...");
+        canvas_draw_str(canvas, 2, 38, "Scanning");
+        canvas_draw_str(canvas, 2, 62, "Back: demo mode");
         return;
     }
 
+    /* ── Result screen ── */
+    char line[64];
+
+    /* Header */
     canvas_set_font(canvas, FontPrimary);
     canvas_draw_str(canvas, 2, 10, "Access Audit");
 
+    /* Source tag, right-aligned */
     canvas_set_font(canvas, FontSecondary);
+    canvas_draw_str_aligned(
+        canvas, 126, 10, AlignRight, AlignBottom, app->used_demo_data ? "[demo]" : "[nfc]");
 
-    char line[64];
+    canvas_draw_line(canvas, 0, 13, 127, 13);
 
-    snprintf(line, sizeof(line), "Type: %s", card_type_to_string(app->obs.card_type));
-    canvas_draw_str(canvas, 2, 20, line);
+    /* Card type */
+    canvas_set_font(canvas, FontSecondary);
+    canvas_draw_str(canvas, 2, 24, card_type_to_string(app->obs.card_type));
 
-    snprintf(
-        line,
-        sizeof(line),
-        "S:%u C:%u%% R:%s",
-        app->score.score,
-        app->score.confidence,
-        severity_to_string(app->score.max_severity));
-    canvas_draw_str(canvas, 2, 30, line);
+    /* Risk label — most prominent element */
+    canvas_set_font(canvas, FontPrimary);
+    canvas_draw_str(canvas, 2, 36, risk_label(app->score.max_severity));
 
+    /* Score, right-aligned on the same baseline as risk label */
+    canvas_set_font(canvas, FontSecondary);
+    snprintf(line, sizeof(line), "%u/100", app->score.score);
+    canvas_draw_str_aligned(canvas, 126, 36, AlignRight, AlignBottom, line);
+
+    /* UID */
     access_audit_format_uid_line(&app->obs, line, sizeof(line));
-    canvas_draw_str(canvas, 2, 42, line);
+    canvas_draw_str(canvas, 2, 48, line);
 
-    snprintf(line, sizeof(line), "Src: %s", app->used_demo_data ? "Demo" : "NFC");
-    canvas_draw_str(canvas, 2, 54, line);
-
-    snprintf(line, sizeof(line), "Meta: %s", app->obs.metadata_complete ? "stable" : "partial");
-    canvas_draw_str(canvas, 2, 64, line);
+    /* Help row */
+    canvas_draw_str(canvas, 2, 62, "OK:rescan  Back:exit");
 }
 
 static void access_audit_input_callback(InputEvent* input_event, void* context) {
