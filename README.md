@@ -35,6 +35,15 @@ Classify a credential, apply simple audit heuristics, and show a human-readable 
 - qFlipper
 - uFBT
 
+## Current Milestone
+
+The prototype currently:
+
+- builds with uFBT
+- launches on Flipper
+- scores a hardcoded credential observation
+- shows the result on-screen
+
 ## Authorized Use Only
 
 This project is intended for defensive security research, education, and authorized assessment of systems you own or are permitted to test.
