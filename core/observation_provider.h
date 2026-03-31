@@ -33,5 +33,3 @@ void observation_provider_stop(ObservationProvider* provider);
  */
 bool observation_provider_poll(ObservationProvider* provider, AccessObservation* out);
 
-/** Fill *out with pre-defined demo data. Always returns true. */
-bool observation_provider_get_demo(AccessObservation* out);

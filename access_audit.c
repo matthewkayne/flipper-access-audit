@@ -5,7 +5,6 @@
 #include "access_audit.h"
 #include "core/observation.h"
 #include "core/scoring.h"
-#include "core/sample_data.h"
 #include "core/observation_provider.h"
 
 typedef enum {
@@ -19,7 +18,6 @@ typedef struct {
     ObservationProvider* provider;
     AccessObservation obs;
     AuditScore score;
-    bool used_demo_data;
     AccessAuditScreen screen;
 } AccessAuditApp;
 
@@ -33,9 +31,8 @@ typedef struct {
 } AccessAuditEvent;
 
 static void access_audit_reset_to_scan(AccessAuditApp* app) {
-    app->used_demo_data = false;
     app->screen = AccessAuditScreenScan;
-    app->obs = sample_observation_unknown();
+    app->obs = (AccessObservation){0};
     app->score = score_observation(&app->obs);
 }
 
@@ -96,7 +93,7 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
         canvas_set_font(canvas, FontSecondary);
         canvas_draw_str(canvas, 2, 26, "Tap NFC card...");
         canvas_draw_str(canvas, 2, 38, "Scanning");
-        canvas_draw_str(canvas, 2, 62, "Back: demo mode");
+        canvas_draw_str(canvas, 2, 62, "Back: exit");
         return;
     }
 
@@ -106,11 +103,6 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
     /* Header */
     canvas_set_font(canvas, FontPrimary);
     canvas_draw_str(canvas, 2, 10, "Access Audit");
-
-    /* Source tag, right-aligned */
-    canvas_set_font(canvas, FontSecondary);
-    canvas_draw_str_aligned(
-        canvas, 126, 10, AlignRight, AlignBottom, app->used_demo_data ? "[demo]" : "[nfc]");
 
     canvas_draw_line(canvas, 0, 13, 127, 13);
 
@@ -186,7 +178,6 @@ int32_t access_audit_app(void* p) {
             AccessObservation candidate;
             if(observation_provider_poll(app->provider, &candidate)) {
                 app->obs = candidate;
-                app->used_demo_data = false;
                 app->score = score_observation(&app->obs);
                 app->screen = AccessAuditScreenResult;
                 view_port_update(app->view_port);
@@ -197,15 +188,7 @@ int32_t access_audit_app(void* p) {
             if(event.type == AccessAuditEventTypeInput && event.input.type == InputTypeShort) {
                 if(app->screen == AccessAuditScreenScan) {
                     if(event.input.key == InputKeyBack) {
-                        observation_provider_stop(app->provider);
-                        app->used_demo_data = true;
-                        if(observation_provider_get_demo(&app->obs)) {
-                            app->score = score_observation(&app->obs);
-                            app->screen = AccessAuditScreenResult;
-                            view_port_update(app->view_port);
-                        } else {
-                            running = false;
-                        }
+                        running = false;
                     }
                 } else if(app->screen == AccessAuditScreenResult) {
                     if(event.input.key == InputKeyOk) {

@@ -7,7 +7,6 @@
 #include <nfc/protocols/iso14443_3a/iso14443_3a_poller.h>
 
 #include "observation_provider.h"
-#include "sample_data.h"
 
 /* -------------------------------------------------------------------------
  * Internal state machine
@@ -210,7 +209,7 @@ static NfcCommand iso14443_3a_poller_cb(NfcGenericEvent event, void* context) {
             size_t uid_len = 0;
             const uint8_t* uid = iso14443_3a_get_uid(data, &uid_len);
 
-            p->pending = sample_observation_unknown();
+            p->pending = (AccessObservation){0};
             p->pending.tech = TechTypeNfc13Mhz;
             p->pending.card_type = p->detected_card_type;
             p->pending.metadata_complete = true;
@@ -283,7 +282,7 @@ ObservationProvider* observation_provider_alloc(void) {
     p->state = ProviderStateIdle;
     p->detected_card_type = CardTypeUnknown;
     p->uid_protocol = NfcProtocolInvalid;
-    p->pending = sample_observation_unknown();
+    p->pending = (AccessObservation){0};
 
     if(!p->nfc || !p->mutex) {
         if(p->nfc) nfc_free(p->nfc);
@@ -440,8 +439,3 @@ bool observation_provider_poll(ObservationProvider* provider, AccessObservation*
     return false;
 }
 
-bool observation_provider_get_demo(AccessObservation* out) {
-    if(!out) return false;
-    *out = sample_observation_mifare_classic();
-    return true;
-}
