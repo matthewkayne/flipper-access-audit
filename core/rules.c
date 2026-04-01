@@ -2,9 +2,10 @@
 
 bool rule_legacy_family(const AccessObservation* obs) {
     if(!obs) return false;
-    return (obs->card_type == CardTypeEm4100Like) ||
-           (obs->card_type == CardTypeHidProxLike) ||
-           (obs->card_type == CardTypeMifareClassic) ||
+    /* All 125 kHz RFID protocols lack cryptographic protection */
+    if(obs->tech == TechTypeRfid125) return true;
+    /* MIFARE Classic family */
+    return (obs->card_type == CardTypeMifareClassic) ||
            (obs->card_type == CardTypeMifareClassic1K) ||
            (obs->card_type == CardTypeMifareClassic4K) ||
            (obs->card_type == CardTypeMifareClassicMini);

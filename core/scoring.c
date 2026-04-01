@@ -96,9 +96,15 @@ const char* severity_to_string(Severity severity) {
 const char* card_type_to_string(CardType type) {
     switch(type) {
     case CardTypeEm4100Like:
-        return "EM4100-like";
+        return "EM4100";
     case CardTypeHidProxLike:
-        return "HID Prox-like";
+        return "HID H10301";
+    case CardTypeHidGeneric:
+        return "HID Generic";
+    case CardTypeIndala:
+        return "Indala";
+    case CardTypeRfid125:
+        return "125kHz RFID";
     case CardTypeMifareClassic:
         return "MIFARE Classic";
     case CardTypeMifareClassic1K:

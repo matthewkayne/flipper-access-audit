@@ -8,6 +8,7 @@
 #include "core/session.h"
 #include "core/report.h"
 #include "core/observation_provider.h"
+#include "core/rfid_provider.h"
 
 typedef enum {
     AccessAuditScreenScan,
@@ -17,10 +18,17 @@ typedef enum {
     AccessAuditScreenReportViewer,
 } AccessAuditScreen;
 
+typedef enum {
+    ScanModeNfc,
+    ScanModeRfid,
+} ScanMode;
+
 typedef struct {
     ViewPort* view_port;
     FuriMessageQueue* event_queue;
-    ObservationProvider* provider;
+    ObservationProvider* nfc_provider;
+    RfidProvider* rfid_provider;
+    ScanMode scan_mode;
     ScanSession session;
     AccessObservation obs;
     AuditScore score;
@@ -106,8 +114,23 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
         canvas_draw_line(canvas, 0, 13, 127, 13);
 
         canvas_set_font(canvas, FontSecondary);
-        canvas_draw_str(canvas, 2, 26, "Tap NFC card...");
-        canvas_draw_str(canvas, 2, 38, "Scanning");
+        /* Mode indicator, right-aligned on the header baseline */
+        canvas_draw_str_aligned(
+            canvas,
+            126,
+            10,
+            AlignRight,
+            AlignBottom,
+            app->scan_mode == ScanModeNfc ? "[NFC]" : "[RFID]");
+
+        canvas_draw_str(
+            canvas,
+            2,
+            26,
+            app->scan_mode == ScanModeNfc ? "Tap card to reader..." :
+                                            "Hold card to reader...");
+        canvas_draw_str(canvas, 2, 38, "Scanning...");
+        canvas_draw_str(canvas, 2, 50, "< > toggle mode");
         canvas_draw_str(canvas, 2, 62, "Up:reports  Back:exit");
         return;
     }
@@ -239,13 +262,22 @@ int32_t access_audit_app(void* p) {
         return -1;
     }
 
-    app->provider = observation_provider_alloc();
-    if(!app->provider) {
+    app->nfc_provider = observation_provider_alloc();
+    if(!app->nfc_provider) {
         furi_message_queue_free(app->event_queue);
         free(app);
         return -1;
     }
 
+    app->rfid_provider = rfid_provider_alloc();
+    if(!app->rfid_provider) {
+        observation_provider_free(app->nfc_provider);
+        furi_message_queue_free(app->event_queue);
+        free(app);
+        return -1;
+    }
+
+    app->scan_mode = ScanModeNfc;
     session_init(&app->session);
     access_audit_reset_to_scan(app);
 
@@ -258,7 +290,7 @@ int32_t access_audit_app(void* p) {
 
     view_port_update(app->view_port);
 
-    observation_provider_start(app->provider);
+    observation_provider_start(app->nfc_provider);
 
     bool running = true;
     AccessAuditEvent event;
@@ -274,7 +306,10 @@ int32_t access_audit_app(void* p) {
 
         if(app->screen == AccessAuditScreenScan) {
             AccessObservation candidate;
-            if(observation_provider_poll(app->provider, &candidate)) {
+            bool got = (app->scan_mode == ScanModeNfc) ?
+                           observation_provider_poll(app->nfc_provider, &candidate) :
+                           rfid_provider_poll(app->rfid_provider, &candidate);
+            if(got) {
                 app->obs = candidate;
                 app->score = score_observation(&app->obs);
                 session_append(&app->session, &app->obs, &app->score);
@@ -288,8 +323,25 @@ int32_t access_audit_app(void* p) {
                 if(app->screen == AccessAuditScreenScan) {
                     if(event.input.key == InputKeyBack) {
                         running = false;
+                    } else if(event.input.key == InputKeyLeft ||
+                               event.input.key == InputKeyRight) {
+                        /* Toggle between NFC and RFID modes */
+                        if(app->scan_mode == ScanModeNfc) {
+                            observation_provider_stop(app->nfc_provider);
+                            app->scan_mode = ScanModeRfid;
+                            rfid_provider_start(app->rfid_provider);
+                        } else {
+                            rfid_provider_stop(app->rfid_provider);
+                            app->scan_mode = ScanModeNfc;
+                            observation_provider_start(app->nfc_provider);
+                        }
+                        view_port_update(app->view_port);
                     } else if(event.input.key == InputKeyUp) {
-                        observation_provider_stop(app->provider);
+                        if(app->scan_mode == ScanModeNfc) {
+                            observation_provider_stop(app->nfc_provider);
+                        } else {
+                            rfid_provider_stop(app->rfid_provider);
+                        }
                         app->rlist_count = report_list(app->rlist_names);
                         app->rlist_top = 0;
                         app->rlist_cursor = 0;
@@ -299,7 +351,11 @@ int32_t access_audit_app(void* p) {
                 } else if(app->screen == AccessAuditScreenReportList) {
                     if(event.input.key == InputKeyBack) {
                         app->screen = AccessAuditScreenScan;
-                        observation_provider_start(app->provider);
+                        if(app->scan_mode == ScanModeNfc) {
+                            observation_provider_start(app->nfc_provider);
+                        } else {
+                            rfid_provider_start(app->rfid_provider);
+                        }
                         view_port_update(app->view_port);
                     } else if(event.input.key == InputKeyUp) {
                         if(app->rlist_cursor > 0) {
@@ -349,11 +405,19 @@ int32_t access_audit_app(void* p) {
                 } else if(app->screen == AccessAuditScreenResult) {
                     if(event.input.key == InputKeyOk) {
                         access_audit_reset_to_scan(app);
-                        observation_provider_start(app->provider);
+                        if(app->scan_mode == ScanModeNfc) {
+                            observation_provider_start(app->nfc_provider);
+                        } else {
+                            rfid_provider_start(app->rfid_provider);
+                        }
                         view_port_update(app->view_port);
                     } else if(event.input.key == InputKeyBack) {
                         if(app->session.count > 0) {
-                            observation_provider_stop(app->provider);
+                            if(app->scan_mode == ScanModeNfc) {
+                                observation_provider_stop(app->nfc_provider);
+                            } else {
+                                rfid_provider_stop(app->rfid_provider);
+                            }
                             report_save_session(&app->session);
                             app->screen = AccessAuditScreenSaved;
                             app->saved_ticks = 12;
@@ -371,7 +435,8 @@ int32_t access_audit_app(void* p) {
     }
 
     report_content_free(&app->rviewer);
-    observation_provider_free(app->provider);
+    rfid_provider_free(app->rfid_provider);
+    observation_provider_free(app->nfc_provider);
 
     view_port_enabled_set(app->view_port, false);
     gui_remove_view_port(gui, app->view_port);

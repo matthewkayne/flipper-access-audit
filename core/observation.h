@@ -12,8 +12,12 @@ typedef enum {
 
 typedef enum {
     CardTypeUnknown = 0,
+    /* 125 kHz RFID family */
     CardTypeEm4100Like,
-    CardTypeHidProxLike,
+    CardTypeHidProxLike,    /* HID H10301 26-bit */
+    CardTypeHidGeneric,     /* HID generic / extended generic */
+    CardTypeIndala,         /* Indala 26-bit */
+    CardTypeRfid125,        /* other 125 kHz protocols */
     /* MIFARE Classic family */
     CardTypeMifareClassic,      /* generic fallback */
     CardTypeMifareClassic1K,

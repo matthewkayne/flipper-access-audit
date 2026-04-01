@@ -10,7 +10,7 @@ Tap a card, get an instant risk score. Save a session report to SD.
 
 ## Features
 
-- **Automatic card classification** — MIFARE Classic 1K/4K/Mini, DESFire, Plus, Ultralight, NTAG203/213/215/216, NTAG I2C, ISO14443-A/B, ISO15693, FeliCa, SLIX, ST25TB
+- **Automatic card classification** — MIFARE Classic 1K/4K/Mini, DESFire, Plus, Ultralight, NTAG203/213/215/216, NTAG I2C, ISO14443-A/B, ISO15693, FeliCa, SLIX, ST25TB; 125 kHz RFID: EM4100, HID H10301, HID Generic, Indala, and more
 - **Instant risk score** — 0–100 score with HIGH RISK / MODERATE / LOW RISK / SECURE label
 - **Multi-scan sessions** — scan up to 20 cards per session; a counter tracks how many you've scanned
 - **SD card reports** — saves a timestamped `.txt` report to `/ext/apps_data/access_audit/` on exit
@@ -41,7 +41,7 @@ ufbt
 
 | Screen | Controls |
 |---|---|
-| Scan | Tap a card to scan · **Up** to view reports · **Back** to exit |
+| Scan | Tap/hold card · **Left/Right** toggle NFC↔RFID · **Up** reports · **Back** exit |
 | Result | **OK** to rescan · **Back** to save session and exit |
 | Reports list | **Up/Down** to scroll · **OK** to open · **Back** to return |
 | Report viewer | **Up/Down** to scroll lines · **Back** to list |
@@ -93,7 +93,7 @@ access_audit.c           — app loop, screens, input handling
 - [x] SD card report saving
 - [x] Card sub-type detection (Classic 1K/4K/Mini, NTAG213/215/216)
 - [x] On-device report viewer
-- [ ] RFID 125 kHz support (EM4100, HID Proxcard)
+- [x] RFID 125 kHz support (EM4100, HID H10301/Generic, Indala, and more)
 - [ ] Named scan sessions (user-entered label)
 - [ ] Session summary stats (high/medium/low counts per report)
 - [ ] Flipper App Catalog submission
