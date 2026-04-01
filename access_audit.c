@@ -63,15 +63,23 @@ static void access_audit_start_scanning(AccessAuditApp* app) {
     if(app->scan_mode == ScanModeNfc) {
         observation_provider_start(app->nfc_provider);
     } else {
-        rfid_provider_start(app->rfid_provider);
+        /* Alloc RFID hardware on first use in this mode. */
+        if(!app->rfid_provider) {
+            app->rfid_provider = rfid_provider_alloc();
+        }
+        if(app->rfid_provider) {
+            rfid_provider_start(app->rfid_provider);
+        }
     }
 }
 
 static void access_audit_stop_scanning(AccessAuditApp* app) {
     if(app->scan_mode == ScanModeNfc) {
         observation_provider_stop(app->nfc_provider);
-    } else {
-        rfid_provider_stop(app->rfid_provider);
+    } else if(app->rfid_provider) {
+        /* Fully free RFID hardware so NFC can use the radio on next switch. */
+        rfid_provider_free(app->rfid_provider);
+        app->rfid_provider = NULL;
     }
 }
 
@@ -283,14 +291,7 @@ int32_t access_audit_app(void* p) {
         return -1;
     }
 
-    app->rfid_provider = rfid_provider_alloc();
-    if(!app->rfid_provider) {
-        observation_provider_free(app->nfc_provider);
-        furi_message_queue_free(app->event_queue);
-        free(app);
-        return -1;
-    }
-
+    app->rfid_provider = NULL; /* allocated on demand when RFID mode is selected */
     app->scan_mode = ScanModeNfc;
     session_init(&app->session);
     access_audit_reset_to_scan(app);
@@ -322,7 +323,9 @@ int32_t access_audit_app(void* p) {
             AccessObservation candidate;
             bool got = (app->scan_mode == ScanModeNfc) ?
                            observation_provider_poll(app->nfc_provider, &candidate) :
-                           rfid_provider_poll(app->rfid_provider, &candidate);
+                           (app->rfid_provider ?
+                                rfid_provider_poll(app->rfid_provider, &candidate) :
+                                false);
             if(got) {
                 app->obs = candidate;
                 app->score = score_observation(&app->obs);
