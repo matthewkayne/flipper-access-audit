@@ -101,10 +101,26 @@ const char* card_type_to_string(CardType type) {
         return "HID Prox-like";
     case CardTypeMifareClassic:
         return "MIFARE Classic";
+    case CardTypeMifareClassic1K:
+        return "MIFARE Classic 1K";
+    case CardTypeMifareClassic4K:
+        return "MIFARE Classic 4K";
+    case CardTypeMifareClassicMini:
+        return "MIFARE Classic Mini";
     case CardTypeMifareUltralight:
         return "MIFARE Ultralight";
-    case CardTypeNtagLike:
-        return "NTAG-like";
+    case CardTypeMifareUltralightC:
+        return "MIFARE Ultralight C";
+    case CardTypeNtag203:
+        return "NTAG203";
+    case CardTypeNtag213:
+        return "NTAG213";
+    case CardTypeNtag215:
+        return "NTAG215";
+    case CardTypeNtag216:
+        return "NTAG216";
+    case CardTypeNtagI2C:
+        return "NTAG I2C";
     case CardTypeMifareDesfire:
         return "MIFARE DESFire";
     case CardTypeMifarePlus:

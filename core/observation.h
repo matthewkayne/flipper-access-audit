@@ -14,9 +14,20 @@ typedef enum {
     CardTypeUnknown = 0,
     CardTypeEm4100Like,
     CardTypeHidProxLike,
-    CardTypeMifareClassic,
-    CardTypeMifareUltralight,
-    CardTypeNtagLike,
+    /* MIFARE Classic family */
+    CardTypeMifareClassic,      /* generic fallback */
+    CardTypeMifareClassic1K,
+    CardTypeMifareClassic4K,
+    CardTypeMifareClassicMini,
+    /* MIFARE Ultralight / NTAG family */
+    CardTypeMifareUltralight,   /* generic fallback */
+    CardTypeMifareUltralightC,
+    CardTypeNtag203,
+    CardTypeNtag213,
+    CardTypeNtag215,
+    CardTypeNtag216,
+    CardTypeNtagI2C,
+    /* Other NFC families */
     CardTypeMifareDesfire,
     CardTypeMifarePlus,
     CardTypeIso14443A,

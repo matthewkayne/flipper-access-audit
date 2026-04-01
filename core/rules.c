@@ -4,7 +4,10 @@ bool rule_legacy_family(const AccessObservation* obs) {
     if(!obs) return false;
     return (obs->card_type == CardTypeEm4100Like) ||
            (obs->card_type == CardTypeHidProxLike) ||
-           (obs->card_type == CardTypeMifareClassic);
+           (obs->card_type == CardTypeMifareClassic) ||
+           (obs->card_type == CardTypeMifareClassic1K) ||
+           (obs->card_type == CardTypeMifareClassic4K) ||
+           (obs->card_type == CardTypeMifareClassicMini);
 }
 
 bool rule_identifier_only_pattern(const AccessObservation* obs) {

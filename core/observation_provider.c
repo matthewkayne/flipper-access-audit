@@ -5,6 +5,8 @@
 #include <nfc/protocols/nfc_protocol.h>
 #include <nfc/protocols/iso14443_3a/iso14443_3a.h>
 #include <nfc/protocols/iso14443_3a/iso14443_3a_poller.h>
+#include <nfc/protocols/mf_ultralight/mf_ultralight.h>
+#include <nfc/protocols/mf_ultralight/mf_ultralight_poller.h>
 
 #include "observation_provider.h"
 
@@ -133,6 +135,13 @@ static CardType best_card_type(const NfcProtocol* protos, size_t count) {
  * automatically rather than maintaining a hard-coded list.
  */
 static NfcProtocol uid_transport(const NfcProtocol* protos, size_t count) {
+    /* Prefer MfUltralight over bare ISO14443-3a so we get NTAG sub-type. */
+    for(size_t i = 0; i < count; i++) {
+        if(protos[i] == NfcProtocolMfUltralight ||
+           nfc_protocol_has_parent(protos[i], NfcProtocolMfUltralight)) {
+            return NfcProtocolMfUltralight;
+        }
+    }
     for(size_t i = 0; i < count; i++) {
         if(protos[i] == NfcProtocolIso14443_3a ||
            nfc_protocol_has_parent(protos[i], NfcProtocolIso14443_3a)) {
@@ -147,6 +156,54 @@ static NfcProtocol uid_transport(const NfcProtocol* protos, size_t count) {
     }
     /* Fallback: use first detected protocol */
     return (count > 0) ? protos[0] : NfcProtocolInvalid;
+}
+
+/* -------------------------------------------------------------------------
+ * Sub-type helpers
+ * -------------------------------------------------------------------------
+ */
+
+/** Refine MIFARE Classic generic type to 1K/4K/Mini using the SAK byte. */
+static CardType classic_subtype_from_sak(uint8_t sak, CardType detected) {
+    if(detected != CardTypeMifareClassic && detected != CardTypeMifareClassic1K &&
+       detected != CardTypeMifareClassic4K && detected != CardTypeMifareClassicMini) {
+        return detected;
+    }
+    switch(sak) {
+    case 0x09:
+        return CardTypeMifareClassicMini;
+    case 0x08:
+    case 0x28: /* some emulated 1K cards respond with 0x28 */
+        return CardTypeMifareClassic1K;
+    case 0x18:
+    case 0x38: /* some emulated 4K cards respond with 0x38 */
+        return CardTypeMifareClassic4K;
+    default:
+        return CardTypeMifareClassic;
+    }
+}
+
+/** Map SDK MfUltralightType to our CardType. */
+static CardType mf_ultralight_type_to_card_type(MfUltralightType type) {
+    switch(type) {
+    case MfUltralightTypeMfulC:
+        return CardTypeMifareUltralightC;
+    case MfUltralightTypeNTAG203:
+        return CardTypeNtag203;
+    case MfUltralightTypeNTAG213:
+        return CardTypeNtag213;
+    case MfUltralightTypeNTAG215:
+        return CardTypeNtag215;
+    case MfUltralightTypeNTAG216:
+        return CardTypeNtag216;
+    case MfUltralightTypeNTAGI2C1K:
+    case MfUltralightTypeNTAGI2C2K:
+    case MfUltralightTypeNTAGI2CPlus1K:
+    case MfUltralightTypeNTAGI2CPlus2K:
+        return CardTypeNtagI2C;
+    default:
+        return CardTypeMifareUltralight;
+    }
 }
 
 /* -------------------------------------------------------------------------
@@ -208,10 +265,11 @@ static NfcCommand iso14443_3a_poller_cb(NfcGenericEvent event, void* context) {
         if(data) {
             size_t uid_len = 0;
             const uint8_t* uid = iso14443_3a_get_uid(data, &uid_len);
+            uint8_t sak = iso14443_3a_get_sak(data);
 
             p->pending = (AccessObservation){0};
             p->pending.tech = TechTypeNfc13Mhz;
-            p->pending.card_type = p->detected_card_type;
+            p->pending.card_type = classic_subtype_from_sak(sak, p->detected_card_type);
             p->pending.metadata_complete = true;
 
             if(uid && uid_len > 0) {
@@ -229,6 +287,64 @@ static NfcCommand iso14443_3a_poller_cb(NfcGenericEvent event, void* context) {
         }
     } else {
         /* Iso14443_3aPollerEventTypeError */
+        p->state = ProviderStateReadFailed;
+    }
+
+    furi_mutex_release(p->mutex);
+    return NfcCommandStop;
+}
+
+/* -------------------------------------------------------------------------
+ * MfUltralight poller callback  (runs on NFC worker thread)
+ *
+ * The poller fires RequestMode first (we ask for Read), then AuthRequest if
+ * the card requires a password (we skip it), then ReadSuccess/ReadFailed.
+ * -------------------------------------------------------------------------
+ */
+
+static NfcCommand mf_ultralight_poller_cb(NfcGenericEvent event, void* context) {
+    ObservationProvider* p = context;
+    MfUltralightPollerEvent* ul_event = (MfUltralightPollerEvent*)event.event_data;
+
+    /* These two events don't touch shared provider state — no mutex needed. */
+    if(ul_event->type == MfUltralightPollerEventTypeRequestMode) {
+        ul_event->data->poller_mode = MfUltralightPollerModeRead;
+        return NfcCommandContinue;
+    }
+    if(ul_event->type == MfUltralightPollerEventTypeAuthRequest) {
+        ul_event->data->auth_context.skip_auth = true;
+        return NfcCommandContinue;
+    }
+
+    furi_mutex_acquire(p->mutex, FuriWaitForever);
+
+    if(ul_event->type == MfUltralightPollerEventTypeReadSuccess) {
+        const MfUltralightData* ul_data =
+            (const MfUltralightData*)nfc_poller_get_data(p->poller);
+
+        if(ul_data) {
+            size_t uid_len = 0;
+            const uint8_t* uid = mf_ultralight_get_uid(ul_data, &uid_len);
+
+            p->pending = (AccessObservation){0};
+            p->pending.tech = TechTypeNfc13Mhz;
+            p->pending.card_type = mf_ultralight_type_to_card_type(ul_data->type);
+            p->pending.metadata_complete = true;
+
+            if(uid && uid_len > 0) {
+                p->pending.uid_present = true;
+                p->pending.uid_len =
+                    uid_len <= sizeof(p->pending.uid) ? uid_len : sizeof(p->pending.uid);
+                for(size_t i = 0; i < p->pending.uid_len; i++) {
+                    p->pending.uid[i] = uid[i];
+                }
+            }
+
+            p->state = ProviderStateDone;
+        } else {
+            p->state = ProviderStateReadFailed;
+        }
+    } else {
         p->state = ProviderStateReadFailed;
     }
 
@@ -260,6 +376,8 @@ static NfcGenericCallback callback_for_protocol(NfcProtocol protocol) {
     switch(protocol) {
     case NfcProtocolIso14443_3a:
         return iso14443_3a_poller_cb;
+    case NfcProtocolMfUltralight:
+        return mf_ultralight_poller_cb;
     default:
         /* Other transport protocols not yet supported; caller will handle NULL */
         return NULL;
