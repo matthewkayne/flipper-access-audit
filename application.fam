@@ -6,10 +6,10 @@ App(
     sources=["*.c"],
     requires=["gui", "nfc", "storage"],
     stack_size=2 * 1024,
-    fap_version=(0, 4),
+    fap_version=(0, 5),
     fap_icon="icon.png",
     fap_category="Tools",
     fap_author="matthewkayne",
-    fap_description="Scan NFC and RFID access-control cards and get an instant security risk score. Supports MIFARE Classic, DESFire, Ultralight, NTAG, HID, EM4100, and more.",
+    fap_description="Audit NFC and RFID access-control cards. Detects DESFire EV1/EV2/EV3, MIFARE Classic/Plus SL1-SL3, NTAG, EM4100, HID, and more. Instant risk score with per-card advice.",
     fap_weburl="https://github.com/matthewkayne/flipper-access-audit",
 )
