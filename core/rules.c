@@ -4,11 +4,15 @@ bool rule_legacy_family(const AccessObservation* obs) {
     if(!obs) return false;
     /* All 125 kHz RFID protocols lack cryptographic protection */
     if(obs->tech == TechTypeRfid125) return true;
-    /* MIFARE Classic family */
-    return (obs->card_type == CardTypeMifareClassic) ||
-           (obs->card_type == CardTypeMifareClassic1K) ||
-           (obs->card_type == CardTypeMifareClassic4K) ||
-           (obs->card_type == CardTypeMifareClassicMini);
+    /* MIFARE Classic family — Crypto1 cipher is broken */
+    if(obs->card_type == CardTypeMifareClassic ||
+       obs->card_type == CardTypeMifareClassic1K ||
+       obs->card_type == CardTypeMifareClassic4K ||
+       obs->card_type == CardTypeMifareClassicMini)
+        return true;
+    /* MIFARE Plus SL1 — Classic-compatibility mode, no AES in use */
+    if(obs->card_type == CardTypeMifarePlusSL1) return true;
+    return false;
 }
 
 bool rule_identifier_only_pattern(const AccessObservation* obs) {
@@ -35,7 +39,21 @@ bool rule_no_uid(const AccessObservation* obs) {
 
 bool rule_modern_crypto(const AccessObservation* obs) {
     if(!obs) return false;
-    return (obs->card_type == CardTypeMifareDesfire) ||
-           (obs->card_type == CardTypeMifarePlus) ||
-           (obs->card_type == CardTypeFelica);
+    switch(obs->card_type) {
+    /* DESFire family — all variants use DES/3DES or AES */
+    case CardTypeMifareDesfire:
+    case CardTypeMifareDesfireEV1:
+    case CardTypeMifareDesfireEV2:
+    case CardTypeMifareDesfireEV3:
+    case CardTypeMifareDesfireLight:
+    /* MIFARE Plus SL2/SL3 — AES crypto active */
+    case CardTypeMifarePlus:
+    case CardTypeMifarePlusSL2:
+    case CardTypeMifarePlusSL3:
+    /* FeliCa uses proprietary crypto */
+    case CardTypeFelica:
+        return true;
+    default:
+        return false;
+    }
 }

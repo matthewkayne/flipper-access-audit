@@ -14,6 +14,48 @@ static void fw(File* f, const char* s) {
     storage_file_write(f, s, strlen(s));
 }
 
+static const char* report_advice(CardType type) {
+    switch(type) {
+    case CardTypeEm4100Like:
+    case CardTypeHidProxLike:
+    case CardTypeHidGeneric:
+    case CardTypeIndala:
+    case CardTypeRfid125:
+        return "No crypto. Replace with an ISO14443 card using AES auth.";
+    case CardTypeMifareClassic:
+    case CardTypeMifareClassic1K:
+    case CardTypeMifareClassic4K:
+    case CardTypeMifareClassicMini:
+        return "Crypto1 is broken. Replace with DESFire EV2+ or Plus SL3.";
+    case CardTypeMifarePlusSL1:
+        return "SL1 = Classic compat. Upgrade to SL3 or replace with DESFire.";
+    case CardTypeMifarePlusSL2:
+        return "SL2 has AES but Classic frames. Consider upgrading to SL3.";
+    case CardTypeMifarePlus:
+    case CardTypeMifarePlusSL3:
+        return "Verify key diversification and mutual auth are configured.";
+    case CardTypeMifareUltralight:
+    case CardTypeMifareUltralightC:
+    case CardTypeNtag203:
+    case CardTypeNtag213:
+    case CardTypeNtag215:
+    case CardTypeNtag216:
+    case CardTypeNtagI2C:
+        return "No mutual auth. Avoid for access control; use DESFire EV2+.";
+    case CardTypeMifareDesfireEV1:
+        return "EV1 uses 3DES. Upgrade to EV2/EV3 for AES crypto.";
+    case CardTypeMifareDesfire:
+    case CardTypeMifareDesfireEV2:
+    case CardTypeMifareDesfireEV3:
+    case CardTypeMifareDesfireLight:
+        return "Verify key diversification and mutual auth are configured.";
+    case CardTypeFelica:
+        return "Verify FeliCa application crypto is properly configured.";
+    default:
+        return NULL;
+    }
+}
+
 static const char* report_risk_label(Severity severity) {
     switch(severity) {
     case SeverityHigh:
@@ -61,7 +103,8 @@ static void write_card_entry(
         buf, sizeof(buf), "  Risk:   %s\n", report_risk_label(entry->score.max_severity));
     fw(f, buf);
 
-    snprintf(buf, sizeof(buf), "  Score:  %u/100\n", entry->score.score);
+    snprintf(buf, sizeof(buf), "  Score:  %u/100  Confidence: %u%%\n",
+        entry->score.score, entry->score.confidence);
     fw(f, buf);
 
     /* Rules triggered */
@@ -87,7 +130,16 @@ static void write_card_entry(
         }
     }
     if(!any) fw(f, "none");
-    fw(f, "\n\n");
+    fw(f, "\n");
+
+    /* Advice */
+    const char* advice = report_advice(entry->obs.card_type);
+    if(advice) {
+        fw(f, "  Advice: ");
+        fw(f, advice);
+        fw(f, "\n");
+    }
+    fw(f, "\n");
 }
 
 bool report_save_session(const ScanSession* session) {
@@ -161,6 +213,21 @@ bool report_save_session(const ScanSession* session) {
 
         for(size_t i = 0; i < session->count; i++) {
             write_card_entry(file, i, session->count, &session->entries[i]);
+        }
+
+        /* Session-level advisory */
+        if(sum.high > 0 || sum.medium > 0) {
+            fw(file, "========================================\n");
+            if(sum.high > 0) {
+                snprintf(buf, sizeof(buf),
+                    "ACTION REQUIRED: %u high-risk card(s) detected.\n",
+                    (unsigned)sum.high);
+                fw(file, buf);
+                fw(file, "Replace or upgrade legacy credentials immediately.\n");
+            } else {
+                fw(file, "REVIEW RECOMMENDED: moderate-risk card(s) detected.\n");
+            }
+            fw(file, "========================================\n");
         }
 
         storage_file_close(file);

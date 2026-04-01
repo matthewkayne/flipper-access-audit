@@ -31,9 +31,17 @@ typedef enum {
     CardTypeNtag215,
     CardTypeNtag216,
     CardTypeNtagI2C,
-    /* Other NFC families */
-    CardTypeMifareDesfire,
-    CardTypeMifarePlus,
+    /* MIFARE DESFire sub-types */
+    CardTypeMifareDesfire,       /* generic fallback */
+    CardTypeMifareDesfireEV1,    /* DES/3DES crypto */
+    CardTypeMifareDesfireEV2,    /* AES crypto */
+    CardTypeMifareDesfireEV3,    /* AES + enhanced security */
+    CardTypeMifareDesfireLight,  /* lightweight DESFire variant */
+    /* MIFARE Plus security levels */
+    CardTypeMifarePlus,          /* generic fallback */
+    CardTypeMifarePlusSL1,       /* SL1 = Classic-compatible, no AES in use */
+    CardTypeMifarePlusSL2,       /* SL2 = AES crypto, Classic frame structure */
+    CardTypeMifarePlusSL3,       /* SL3 = AES crypto + ISO14443-4 */
     CardTypeIso14443A,
     CardTypeIso14443B,
     CardTypeIso15693,

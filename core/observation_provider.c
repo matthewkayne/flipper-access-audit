@@ -7,6 +7,10 @@
 #include <nfc/protocols/iso14443_3a/iso14443_3a_poller.h>
 #include <nfc/protocols/mf_ultralight/mf_ultralight.h>
 #include <nfc/protocols/mf_ultralight/mf_ultralight_poller.h>
+#include <nfc/protocols/mf_desfire/mf_desfire.h>
+#include <nfc/protocols/mf_desfire/mf_desfire_poller.h>
+#include <nfc/protocols/mf_plus/mf_plus.h>
+#include <nfc/protocols/mf_plus/mf_plus_poller.h>
 
 #include "observation_provider.h"
 
@@ -135,6 +139,14 @@ static CardType best_card_type(const NfcProtocol* protos, size_t count) {
  * automatically rather than maintaining a hard-coded list.
  */
 static NfcProtocol uid_transport(const NfcProtocol* protos, size_t count) {
+    /* Prefer DESFire poller — gives version (EV1/EV2/EV3) and UID. */
+    for(size_t i = 0; i < count; i++) {
+        if(protos[i] == NfcProtocolMfDesfire) return NfcProtocolMfDesfire;
+    }
+    /* Prefer MfPlus poller — gives security level and UID. */
+    for(size_t i = 0; i < count; i++) {
+        if(protos[i] == NfcProtocolMfPlus) return NfcProtocolMfPlus;
+    }
     /* Prefer MfUltralight over bare ISO14443-3a so we get NTAG sub-type. */
     for(size_t i = 0; i < count; i++) {
         if(protos[i] == NfcProtocolMfUltralight ||
@@ -162,6 +174,34 @@ static NfcProtocol uid_transport(const NfcProtocol* protos, size_t count) {
  * Sub-type helpers
  * -------------------------------------------------------------------------
  */
+
+/**
+ * Map DESFire version bytes to CardType.
+ * hw_major bytes come from the GetVersion command response.
+ * Reference: NXP AN10609 / actual card responses.
+ */
+static CardType desfire_version_to_card_type(const MfDesfireVersion* ver) {
+    if(ver->hw_major == 0x01) return CardTypeMifareDesfireEV1;
+    if(ver->hw_major == 0x12) return CardTypeMifareDesfireEV2;
+    if(ver->hw_major == 0x33) return CardTypeMifareDesfireEV3;
+    /* DESFire Light: hw_type = 0x08 */
+    if(ver->hw_type == 0x08) return CardTypeMifareDesfireLight;
+    return CardTypeMifareDesfire;
+}
+
+/** Map MIFARE Plus security level to CardType. */
+static CardType mf_plus_sl_to_card_type(MfPlusSecurityLevel sl) {
+    switch(sl) {
+    case MfPlusSecurityLevel1:
+        return CardTypeMifarePlusSL1;
+    case MfPlusSecurityLevel2:
+        return CardTypeMifarePlusSL2;
+    case MfPlusSecurityLevel3:
+        return CardTypeMifarePlusSL3;
+    default:
+        return CardTypeMifarePlus;
+    }
+}
 
 /** Refine MIFARE Classic generic type to 1K/4K/Mini using the SAK byte. */
 static CardType classic_subtype_from_sak(uint8_t sak, CardType detected) {
@@ -353,6 +393,107 @@ static NfcCommand mf_ultralight_poller_cb(NfcGenericEvent event, void* context) 
 }
 
 /* -------------------------------------------------------------------------
+ * MfDesfire poller callback  (runs on NFC worker thread)
+ *
+ * The poller reads GetVersion (always available without auth), then attempts
+ * to read application metadata.  ReadSuccess fires when the read sequence
+ * completes — even partial reads with auth-protected files give us the version.
+ * -------------------------------------------------------------------------
+ */
+
+static NfcCommand mf_desfire_poller_cb(NfcGenericEvent event, void* context) {
+    ObservationProvider* p = context;
+    MfDesfirePollerEvent* df_event = (MfDesfirePollerEvent*)event.event_data;
+
+    furi_mutex_acquire(p->mutex, FuriWaitForever);
+
+    if(df_event->type == MfDesfirePollerEventTypeReadSuccess) {
+        const MfDesfireData* df_data = (const MfDesfireData*)nfc_poller_get_data(p->poller);
+
+        if(df_data) {
+            size_t uid_len = 0;
+            const uint8_t* uid = mf_desfire_get_uid(df_data, &uid_len);
+
+            p->pending = (AccessObservation){0};
+            p->pending.tech = TechTypeNfc13Mhz;
+            p->pending.card_type = desfire_version_to_card_type(&df_data->version);
+            p->pending.metadata_complete = true;
+            /* DESFire cards have AES-protected application memory */
+            p->pending.user_memory_present = true;
+
+            if(uid && uid_len > 0) {
+                p->pending.uid_present = true;
+                p->pending.uid_len =
+                    uid_len <= sizeof(p->pending.uid) ? uid_len : sizeof(p->pending.uid);
+                for(size_t i = 0; i < p->pending.uid_len; i++) {
+                    p->pending.uid[i] = uid[i];
+                }
+            }
+
+            p->state = ProviderStateDone;
+        } else {
+            p->state = ProviderStateReadFailed;
+        }
+    } else {
+        p->state = ProviderStateReadFailed;
+    }
+
+    furi_mutex_release(p->mutex);
+    return NfcCommandStop;
+}
+
+/* -------------------------------------------------------------------------
+ * MfPlus poller callback  (runs on NFC worker thread)
+ *
+ * The SDK determines the security level (SL0–SL3) automatically by reading
+ * the card's version and configuration responses.
+ * -------------------------------------------------------------------------
+ */
+
+static NfcCommand mf_plus_poller_cb(NfcGenericEvent event, void* context) {
+    ObservationProvider* p = context;
+    MfPlusPollerEvent* plus_event = (MfPlusPollerEvent*)event.event_data;
+
+    furi_mutex_acquire(p->mutex, FuriWaitForever);
+
+    if(plus_event->type == MfPlusPollerEventTypeReadSuccess) {
+        const MfPlusData* plus_data = (const MfPlusData*)nfc_poller_get_data(p->poller);
+
+        if(plus_data) {
+            size_t uid_len = 0;
+            const uint8_t* uid = mf_plus_get_uid(plus_data, &uid_len);
+
+            p->pending = (AccessObservation){0};
+            p->pending.tech = TechTypeNfc13Mhz;
+            p->pending.card_type = mf_plus_sl_to_card_type(plus_data->security_level);
+            p->pending.metadata_complete = true;
+            /* SL2/SL3 have AES-protected sectors; SL1 is Classic-compat */
+            p->pending.user_memory_present =
+                (plus_data->security_level == MfPlusSecurityLevel2 ||
+                 plus_data->security_level == MfPlusSecurityLevel3);
+
+            if(uid && uid_len > 0) {
+                p->pending.uid_present = true;
+                p->pending.uid_len =
+                    uid_len <= sizeof(p->pending.uid) ? uid_len : sizeof(p->pending.uid);
+                for(size_t i = 0; i < p->pending.uid_len; i++) {
+                    p->pending.uid[i] = uid[i];
+                }
+            }
+
+            p->state = ProviderStateDone;
+        } else {
+            p->state = ProviderStateReadFailed;
+        }
+    } else {
+        p->state = ProviderStateReadFailed;
+    }
+
+    furi_mutex_release(p->mutex);
+    return NfcCommandStop;
+}
+
+/* -------------------------------------------------------------------------
  * Internal helpers (main thread only — no races with each other)
  * -------------------------------------------------------------------------
  */
@@ -374,12 +515,15 @@ static void provider_start_scanner(ObservationProvider* p) {
 /** Choose the right poller callback for the given protocol. */
 static NfcGenericCallback callback_for_protocol(NfcProtocol protocol) {
     switch(protocol) {
-    case NfcProtocolIso14443_3a:
-        return iso14443_3a_poller_cb;
+    case NfcProtocolMfDesfire:
+        return mf_desfire_poller_cb;
+    case NfcProtocolMfPlus:
+        return mf_plus_poller_cb;
     case NfcProtocolMfUltralight:
         return mf_ultralight_poller_cb;
+    case NfcProtocolIso14443_3a:
+        return iso14443_3a_poller_cb;
     default:
-        /* Other transport protocols not yet supported; caller will handle NULL */
         return NULL;
     }
 }

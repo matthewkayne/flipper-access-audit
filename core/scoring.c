@@ -67,10 +67,14 @@ AuditScore score_observation(const AccessObservation* obs) {
     if(rule_modern_crypto(obs)) {
         uint8_t reduction = severity_points(SeverityMedium);
         result.score = (result.score >= reduction) ? result.score - reduction : 0;
-        /* Modern crypto cards that still have no UID stay at their score;
-           those with a UID and clean metadata get bumped down to at most Medium */
-        if(result.max_severity == SeverityHigh && !rule_legacy_family(obs)) {
-            result.max_severity = SeverityMedium;
+        /* Reduce severity: HIGH → MEDIUM when not legacy; MEDIUM → Info when score
+           is now zero (e.g. DESFire EV2 with no other risk factors). */
+        if(!rule_legacy_family(obs)) {
+            if(result.max_severity == SeverityHigh) {
+                result.max_severity = SeverityMedium;
+            } else if(result.max_severity == SeverityMedium && result.score == 0) {
+                result.max_severity = SeverityInfo;
+            }
         }
     }
 
@@ -129,8 +133,22 @@ const char* card_type_to_string(CardType type) {
         return "NTAG I2C";
     case CardTypeMifareDesfire:
         return "MIFARE DESFire";
+    case CardTypeMifareDesfireEV1:
+        return "DESFire EV1";
+    case CardTypeMifareDesfireEV2:
+        return "DESFire EV2";
+    case CardTypeMifareDesfireEV3:
+        return "DESFire EV3";
+    case CardTypeMifareDesfireLight:
+        return "DESFire Light";
     case CardTypeMifarePlus:
         return "MIFARE Plus";
+    case CardTypeMifarePlusSL1:
+        return "MIFARE Plus SL1";
+    case CardTypeMifarePlusSL2:
+        return "MIFARE Plus SL2";
+    case CardTypeMifarePlusSL3:
+        return "MIFARE Plus SL3";
     case CardTypeIso14443A:
         return "ISO14443-A";
     case CardTypeIso14443B:
