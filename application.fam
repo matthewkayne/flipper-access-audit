@@ -6,7 +6,7 @@ App(
     sources=["*.c", "core/*.c"],
     requires=["gui", "nfc", "storage"],
     stack_size=2 * 1024,
-    fap_version=(0, 1),
+    fap_version=(0, 3),
     fap_category="Tools",
     fap_author="matthewkayne",
     fap_description="Scan NFC access-control cards and get an instant security risk score. Supports MIFARE Classic, DESFire, Ultralight, NTAG, and more.",
