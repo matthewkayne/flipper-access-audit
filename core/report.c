@@ -120,6 +120,10 @@ bool report_save_session(const ScanSession* session) {
         SessionSummary sum = session_summarise(session);
 
         fw(file, "Access Audit Report\n");
+        if(session->name[0] != '\0') {
+            snprintf(buf, sizeof(buf), "Session: %s\n", session->name);
+            fw(file, buf);
+        }
         snprintf(
             buf,
             sizeof(buf),

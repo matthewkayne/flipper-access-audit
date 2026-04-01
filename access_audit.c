@@ -13,6 +13,7 @@
 typedef enum {
     AccessAuditScreenScan,
     AccessAuditScreenResult,
+    AccessAuditScreenNameEntry,
     AccessAuditScreenSaved,
     AccessAuditScreenReportList,
     AccessAuditScreenReportViewer,
@@ -34,6 +35,8 @@ typedef struct {
     AuditScore score;
     AccessAuditScreen screen;
     int saved_ticks; /* countdown to auto-exit after save confirmation */
+    uint8_t kb_row;  /* keyboard cursor row (0-3) */
+    uint8_t kb_col;  /* keyboard cursor column */
     /* Report list */
     char rlist_names[REPORT_LIST_MAX][REPORT_NAME_LEN];
     size_t rlist_count;
@@ -226,6 +229,55 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
         return;
     }
 
+    if(app->screen == AccessAuditScreenNameEntry) {
+        /* ── QWERTY keyboard ── */
+        static const char* const KB_ROWS[3] = {"QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"};
+        static const uint8_t KB_LENS[3] = {10, 9, 7};
+        static const uint8_t KB_X0[3]   = {4, 6, 12};
+        static const uint8_t KB_STEP[3] = {12, 13, 15};
+        static const uint8_t KB_Y[4]    = {34, 44, 54, 63};
+        /* Special row: 0=DEL  1=SPC  2=OK */
+        static const char* const SPEC_LABEL[3] = {"DEL", "SPC", "OK"};
+        static const uint8_t SPEC_X[3]  = {4,  44, 100};
+        static const uint8_t SPEC_W[3]  = {27, 42,  24};
+
+        canvas_set_font(canvas, FontPrimary);
+        canvas_draw_str(canvas, 2, 10, "Name session");
+        canvas_draw_line(canvas, 0, 13, 127, 13);
+
+        /* Name preview with trailing cursor */
+        canvas_set_font(canvas, FontSecondary);
+        size_t name_len = strlen(app->session.name);
+        char preview[15];
+        snprintf(preview, sizeof(preview), "%s_", app->session.name);
+        canvas_draw_str(canvas, 2, 23, name_len > 0 ? preview : "_");
+
+        /* Letter rows */
+        for(int row = 0; row < 3; row++) {
+            for(int col = 0; col < KB_LENS[row]; col++) {
+                int x = KB_X0[row] + col * KB_STEP[row];
+                char key[2] = {KB_ROWS[row][col], '\0'};
+                if(app->kb_row == (uint8_t)row && app->kb_col == (uint8_t)col) {
+                    canvas_draw_box(canvas, x - 1, KB_Y[row] - 8, 9, 10);
+                    canvas_set_color(canvas, ColorWhite);
+                }
+                canvas_draw_str(canvas, x, KB_Y[row], key);
+                canvas_set_color(canvas, ColorBlack);
+            }
+        }
+
+        /* Special row */
+        for(int col = 0; col < 3; col++) {
+            if(app->kb_row == 3 && app->kb_col == (uint8_t)col) {
+                canvas_draw_box(canvas, SPEC_X[col] - 1, KB_Y[3] - 8, SPEC_W[col], 10);
+                canvas_set_color(canvas, ColorWhite);
+            }
+            canvas_draw_str(canvas, SPEC_X[col], KB_Y[3], SPEC_LABEL[col]);
+            canvas_set_color(canvas, ColorBlack);
+        }
+        return;
+    }
+
     /* ── Result screen ── */
     char line[64];
 
@@ -414,12 +466,82 @@ int32_t access_audit_app(void* p) {
                     } else if(event.input.key == InputKeyBack) {
                         if(app->session.count > 0) {
                             access_audit_stop_scanning(app);
+                            /* Enter name entry — clear any previous name */
+                            memset(app->session.name, 0, sizeof(app->session.name));
+                            app->kb_row = 0;
+                            app->kb_col = 0;
+                            app->screen = AccessAuditScreenNameEntry;
+                            view_port_update(app->view_port);
+                        } else {
+                            running = false;
+                        }
+                    }
+                } else if(app->screen == AccessAuditScreenNameEntry) {
+                    static const char* const KB_ROWS[3] = {"QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"};
+                    static const uint8_t KB_LENS[4] = {10, 9, 7, 3};
+
+                    if(event.input.key == InputKeyUp) {
+                        if(app->kb_row > 0) {
+                            app->kb_row--;
+                            if(app->kb_col >= KB_LENS[app->kb_row])
+                                app->kb_col = KB_LENS[app->kb_row] - 1;
+                        }
+                        view_port_update(app->view_port);
+                    } else if(event.input.key == InputKeyDown) {
+                        if(app->kb_row < 3) {
+                            app->kb_row++;
+                            if(app->kb_col >= KB_LENS[app->kb_row])
+                                app->kb_col = KB_LENS[app->kb_row] - 1;
+                        }
+                        view_port_update(app->view_port);
+                    } else if(event.input.key == InputKeyLeft) {
+                        if(app->kb_col > 0) app->kb_col--;
+                        view_port_update(app->view_port);
+                    } else if(event.input.key == InputKeyRight) {
+                        if(app->kb_col < KB_LENS[app->kb_row] - 1) app->kb_col++;
+                        view_port_update(app->view_port);
+                    } else if(event.input.key == InputKeyOk) {
+                        size_t name_len = strlen(app->session.name);
+                        if(app->kb_row < 3) {
+                            /* Letter key — append if room */
+                            if(name_len < 12) {
+                                app->session.name[name_len] = KB_ROWS[app->kb_row][app->kb_col];
+                                app->session.name[name_len + 1] = '\0';
+                            }
+                            view_port_update(app->view_port);
+                        } else {
+                            /* Special row */
+                            if(app->kb_col == 0) {
+                                /* DEL — backspace */
+                                if(name_len > 0) app->session.name[name_len - 1] = '\0';
+                                view_port_update(app->view_port);
+                            } else if(app->kb_col == 1) {
+                                /* SPC — insert space if room */
+                                if(name_len < 12) {
+                                    app->session.name[name_len] = ' ';
+                                    app->session.name[name_len + 1] = '\0';
+                                }
+                                view_port_update(app->view_port);
+                            } else {
+                                /* OK — save with name */
+                                report_save_session(&app->session);
+                                app->screen = AccessAuditScreenSaved;
+                                app->saved_ticks = 12;
+                                view_port_update(app->view_port);
+                            }
+                        }
+                    } else if(event.input.key == InputKeyBack) {
+                        size_t name_len = strlen(app->session.name);
+                        if(name_len > 0) {
+                            /* Backspace */
+                            app->session.name[name_len - 1] = '\0';
+                            view_port_update(app->view_port);
+                        } else {
+                            /* Empty name — save without name */
                             report_save_session(&app->session);
                             app->screen = AccessAuditScreenSaved;
                             app->saved_ticks = 12;
                             view_port_update(app->view_port);
-                        } else {
-                            running = false;
                         }
                     }
                 } else if(app->screen == AccessAuditScreenSaved) {

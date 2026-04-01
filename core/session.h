@@ -14,6 +14,7 @@ typedef struct {
 typedef struct {
     SessionEntry entries[SESSION_MAX_ENTRIES];
     size_t count;
+    char name[13]; /* optional user-entered label, empty string = unnamed */
 } ScanSession;
 
 typedef struct {

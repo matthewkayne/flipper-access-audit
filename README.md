@@ -94,8 +94,8 @@ access_audit.c           — app loop, screens, input handling
 - [x] Card sub-type detection (Classic 1K/4K/Mini, NTAG213/215/216)
 - [x] On-device report viewer
 - [x] RFID 125 kHz support (EM4100, HID H10301/Generic, Indala, and more)
-- [ ] Named scan sessions (user-entered label)
-- [ ] Session summary stats (high/medium/low counts per report)
+- [x] Session summary stats (high/medium/low counts per report)
+- [x] Named scan sessions (optional QWERTY keyboard on save)
 - [ ] Flipper App Catalog submission
 - [ ] Additional card-type depth (ISO15693 sub-types, DESFire EV level)
 
