@@ -1,8 +1,8 @@
 # Flipper Access Audit
 
-A Flipper Zero app for **defensive auditing of NFC access-control credentials**.
+A Flipper Zero app for **defensive auditing of NFC and RFID access-control credentials**.
 
-Tap a card, get an instant risk score. Save a session report to SD.
+Tap a card, get an instant risk score and plain-English advice. Save a named session report to SD.
 
 > **Authorized use only.** This tool is intended for security professionals, system owners, and researchers assessing systems they own or are permitted to test.
 
@@ -10,11 +10,14 @@ Tap a card, get an instant risk score. Save a session report to SD.
 
 ## Features
 
-- **Automatic card classification** — MIFARE Classic 1K/4K/Mini, DESFire, Plus, Ultralight, NTAG203/213/215/216, NTAG I2C, ISO14443-A/B, ISO15693, FeliCa, SLIX, ST25TB; 125 kHz RFID: EM4100, HID H10301, HID Generic, Indala, and more
+- **Deep card classification** — MIFARE Classic 1K/4K/Mini, DESFire EV1/EV2/EV3/Light, MIFARE Plus SL1/SL2/SL3, Ultralight C, NTAG203/213/215/216, NTAG I2C, ISO14443-A/B, ISO15693, FeliCa, SLIX, ST25TB; 125 kHz RFID: EM4100, HID H10301, HID Generic, Indala, and more
 - **Instant risk score** — 0–100 score with HIGH RISK / MODERATE / LOW RISK / SECURE label
-- **Multi-scan sessions** — scan up to 20 cards per session; a counter tracks how many you've scanned
-- **SD card reports** — saves a timestamped `.txt` report to `/ext/apps_data/access_audit/` on exit
-- **On-device report viewer** — browse and scroll through saved reports without leaving the app
+- **Per-card advice** — plain-English recommendation written to every report entry
+- **Multi-scan sessions** — scan up to 20 cards per session with a live counter
+- **Named sessions** — optionally label a session before saving using an on-screen QWERTY keyboard
+- **SD card reports** — timestamped `.txt` report saved to `/ext/apps_data/access_audit/` with per-card advice and session-level advisory
+- **On-device report viewer** — browse and scroll saved reports without leaving the app
+- **NFC + RFID** — Left/Right toggles between 13.56 MHz NFC and 125 kHz RFID scanning
 
 ---
 
@@ -41,27 +44,41 @@ ufbt
 
 | Screen | Controls |
 |---|---|
-| Scan | Tap/hold card · **Left/Right** toggle NFC↔RFID · **Up** reports · **Back** exit |
-| Result | **OK** to rescan · **Back** to save session and exit |
-| Reports list | **Up/Down** to scroll · **OK** to open · **Back** to return |
-| Report viewer | **Up/Down** to scroll lines · **Back** to list |
+| Scan | Tap/hold card · **Left/Right** toggle NFC↔RFID · **Up** view reports · **Back** exit |
+| Result | **OK** rescan · **Back** save session and proceed to naming |
+| Name session | QWERTY keyboard · **OK key** save with name · **Back** skip naming / backspace |
+| Reports list | **Up/Down** scroll · **OK** open · **Back** return to scan |
+| Report viewer | **Up/Down** scroll lines · **Back** return to list |
 
 ### Score interpretation
 
 | Label | Score | Meaning |
 |---|---|---|
-| HIGH RISK | 35–100 | Legacy family (MIFARE Classic, EM4100) or static-replay pattern |
-| MODERATE | 20–34 | Some risk indicators present |
+| HIGH RISK | 35–100 | Legacy family (MIFARE Classic, EM4100, Plus SL1) or static-replay pattern |
+| MODERATE | 20–34 | Risk indicators present — review recommended |
 | LOW RISK | 10–19 | Minor concerns, e.g. incomplete metadata |
-| SECURE | 0–9 | Modern crypto family, no major findings |
+| SECURE | 0–9 | Modern crypto family with no major findings |
+
+### Card classification depth
+
+| Family | Sub-types detected |
+|---|---|
+| MIFARE Classic | 1K · 4K · Mini (via SAK byte) |
+| MIFARE DESFire | EV1 · EV2 · EV3 · Light (via GetVersion) |
+| MIFARE Plus | SL1 · SL2 · SL3 (via security level response) |
+| MIFARE Ultralight / NTAG | Ultralight C · NTAG203/213/215/216 · NTAG I2C |
+| 125 kHz RFID | EM4100 · HID H10301 · HID Generic · Indala · generic 125 kHz |
 
 ---
 
 ## How it works
 
-The app uses the Flipper NFC scanner to detect the card family, then starts the appropriate poller to extract the UID and card-specific metadata without any authentication. Results are scored against a set of named rules (see [docs/rules.md](docs/rules.md)).
-
-No card data is modified. No authentication is attempted against protected sectors.
+1. The NFC scanner detects which protocols the card supports.
+2. The richest available poller is started (DESFire → Plus → Ultralight → ISO14443-3a).
+3. The poller reads the UID and card-specific metadata without authentication — no sectors are unlocked, no data is modified.
+4. The observation is scored against six named rules (see [docs/rules.md](docs/rules.md)).
+5. Results are displayed on screen and appended to the session buffer.
+6. On save, the session is written as a `.txt` report with per-card advice and a session-level advisory.
 
 ---
 
@@ -73,13 +90,14 @@ No card data is modified. No authentication is attempted against protected secto
 
 ```
 core/
-  observation.h          — data model
-  observation_provider.c — NFC scan pipeline (scanner + poller state machine)
-  rules.c                — named audit rules
-  scoring.c              — score calculator + card-type strings
-  session.c              — multi-scan session buffer
-  report.c               — SD card save + report listing/loading
-access_audit.c           — app loop, screens, input handling
+  observation.h           — data model (TechType, CardType, AccessObservation)
+  observation_provider.c  — NFC scan pipeline (scanner + poller state machine)
+  rfid_provider.c         — RFID 125 kHz scan pipeline (LFRFIDWorker)
+  rules.c                 — named audit rules
+  scoring.c               — score calculator + card-type strings
+  session.c               — multi-scan session buffer
+  report.c                — SD card save + report listing/loading
+access_audit.c            — app loop, screens, input handling
 ```
 
 ---
@@ -96,8 +114,10 @@ access_audit.c           — app loop, screens, input handling
 - [x] RFID 125 kHz support (EM4100, HID H10301/Generic, Indala, and more)
 - [x] Session summary stats (high/medium/low counts per report)
 - [x] Named scan sessions (optional QWERTY keyboard on save)
+- [x] DESFire EV1/EV2/EV3/Light detection (via GetVersion)
+- [x] MIFARE Plus SL1/SL2/SL3 detection (via security level)
+- [x] Per-card advice and session-level advisory in reports
 - [ ] Flipper App Catalog submission
-- [ ] Additional card-type depth (ISO15693 sub-types, DESFire EV level)
 
 ---
 

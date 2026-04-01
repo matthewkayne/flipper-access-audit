@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here.
 
+## [0.5.0] — Deep card classification and report improvements
+
+- DESFire EV1/EV2/EV3/Light detection via GetVersion command (poller callback)
+- MIFARE Plus SL1/SL2/SL3 detection via SDK security level response
+- Scoring fix: DESFire EV2/EV3 and Plus SL2/SL3 now correctly score SECURE
+- Scoring fix: MIFARE Plus SL1 now scores HIGH RISK (Classic-compatibility mode)
+- Per-card `Advice:` line in reports with plain-English recommendation per card type
+- Confidence percentage shown alongside risk score in reports
+- Session-level `ACTION REQUIRED` / `REVIEW RECOMMENDED` advisory at end of report
+- README and docs updated to reflect full card classification depth and scoring behaviour
+
 ## [0.4.0] — Named sessions
 
 - Optional session naming on save via on-screen QWERTY keyboard
