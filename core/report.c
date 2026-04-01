@@ -37,6 +37,10 @@ static void write_card_entry(
     snprintf(buf, sizeof(buf), "Card %u/%u\n", (unsigned)(index + 1), (unsigned)total);
     fw(f, buf);
 
+    fw(f,
+       entry->obs.tech == TechTypeRfid125 ? "  Radio:  RFID 125kHz\n" :
+                                            "  Radio:  NFC 13.56MHz\n");
+
     snprintf(buf, sizeof(buf), "  Type:   %s\n", card_type_to_string(entry->obs.card_type));
     fw(f, buf);
 
