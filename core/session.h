@@ -16,6 +16,14 @@ typedef struct {
     size_t count;
 } ScanSession;
 
+typedef struct {
+    size_t high;
+    size_t medium;
+    size_t low;
+    size_t secure;
+    CardType most_common_type; /* CardTypeUnknown if count == 0 */
+} SessionSummary;
+
 void session_init(ScanSession* session);
 
 /**
@@ -23,3 +31,6 @@ void session_init(ScanSession* session);
  * Returns false (and does nothing) if the session is full.
  */
 bool session_append(ScanSession* session, const AccessObservation* obs, const AuditScore* score);
+
+/** Compute summary statistics over all entries in the session. */
+SessionSummary session_summarise(const ScanSession* session);

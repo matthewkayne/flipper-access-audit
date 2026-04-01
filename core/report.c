@@ -113,6 +113,7 @@ bool report_save_session(const ScanSession* session) {
 
     if(ok) {
         char buf[64];
+        SessionSummary sum = session_summarise(session);
 
         fw(file, "Access Audit Report\n");
         snprintf(
@@ -128,6 +129,26 @@ bool report_save_session(const ScanSession* session) {
         fw(file, buf);
         snprintf(buf, sizeof(buf), "Cards scanned: %u\n", (unsigned)session->count);
         fw(file, buf);
+
+        /* Summary block */
+        snprintf(
+            buf,
+            sizeof(buf),
+            "High: %u  Medium: %u  Low: %u  Secure: %u\n",
+            (unsigned)sum.high,
+            (unsigned)sum.medium,
+            (unsigned)sum.low,
+            (unsigned)sum.secure);
+        fw(file, buf);
+        if(sum.most_common_type != CardTypeUnknown) {
+            snprintf(
+                buf,
+                sizeof(buf),
+                "Most common: %s\n",
+                card_type_to_string(sum.most_common_type));
+            fw(file, buf);
+        }
+
         fw(file, "----------------------------------------\n\n");
 
         for(size_t i = 0; i < session->count; i++) {
