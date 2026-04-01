@@ -117,6 +117,7 @@ access_audit.c            — app loop, screens, input handling
 - [x] DESFire EV1/EV2/EV3/Light detection (via GetVersion)
 - [x] MIFARE Plus SL1/SL2/SL3 detection (via security level)
 - [x] Per-card advice and session-level advisory in reports
+- [x] v1.0.0 stable release
 - [ ] Flipper App Catalog submission
 
 ---

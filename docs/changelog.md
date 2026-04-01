@@ -1,3 +1,13 @@
+## v1.0
+
+- First stable release
+- Full NFC 13.56 MHz and RFID 125 kHz support with hardware-safe toggling
+- Deep card classification: DESFire EV1/EV2/EV3/Light, MIFARE Classic 1K/4K/Mini, Plus SL1/SL2/SL3, NTAG203/213/215/216/I2C, EM4100, HID H10301/Generic, Indala, and more
+- Six named audit rules with additive scoring (0–100) and four severity labels
+- Named scan sessions via on-screen QWERTY keyboard
+- Rich SD card reports: per-card advice, memory capacity, manufacturer, UID byte count, unique card count, mixed-tech flag, session-level advisory
+- On-device report viewer with scrolling
+
 ## v0.5
 
 - DESFire EV1/EV2/EV3/Light detection via GetVersion command
