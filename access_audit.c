@@ -18,11 +18,17 @@ typedef enum {
     AccessAuditScreenReportViewer,
 } AccessAuditScreen;
 
+typedef enum {
+    ScanModeNfc,
+    ScanModeRfid,
+} ScanMode;
+
 typedef struct {
     ViewPort* view_port;
     FuriMessageQueue* event_queue;
     ObservationProvider* nfc_provider;
     RfidProvider* rfid_provider;
+    ScanMode scan_mode;
     ScanSession session;
     AccessObservation obs;
     AuditScore score;
@@ -54,13 +60,19 @@ static void access_audit_reset_to_scan(AccessAuditApp* app) {
 }
 
 static void access_audit_start_scanning(AccessAuditApp* app) {
-    observation_provider_start(app->nfc_provider);
-    rfid_provider_start(app->rfid_provider);
+    if(app->scan_mode == ScanModeNfc) {
+        observation_provider_start(app->nfc_provider);
+    } else {
+        rfid_provider_start(app->rfid_provider);
+    }
 }
 
 static void access_audit_stop_scanning(AccessAuditApp* app) {
-    observation_provider_stop(app->nfc_provider);
-    rfid_provider_stop(app->rfid_provider);
+    if(app->scan_mode == ScanModeNfc) {
+        observation_provider_stop(app->nfc_provider);
+    } else {
+        rfid_provider_stop(app->rfid_provider);
+    }
 }
 
 static void access_audit_format_uid_line(
@@ -118,8 +130,21 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
         canvas_draw_line(canvas, 0, 13, 127, 13);
 
         canvas_set_font(canvas, FontSecondary);
-        canvas_draw_str(canvas, 2, 26, "Tap or hold card...");
-        canvas_draw_str(canvas, 2, 38, "Scanning NFC + RFID");
+        canvas_draw_str_aligned(
+            canvas,
+            126,
+            10,
+            AlignRight,
+            AlignBottom,
+            app->scan_mode == ScanModeNfc ? "[NFC]" : "[RFID]");
+        canvas_draw_str(
+            canvas,
+            2,
+            26,
+            app->scan_mode == ScanModeNfc ? "Tap card to reader..." :
+                                            "Hold card to reader...");
+        canvas_draw_str(canvas, 2, 38, "Scanning...");
+        canvas_draw_str(canvas, 2, 50, "< > toggle NFC/RFID");
         canvas_draw_str(canvas, 2, 62, "Up:reports  Back:exit");
         return;
     }
@@ -266,6 +291,7 @@ int32_t access_audit_app(void* p) {
         return -1;
     }
 
+    app->scan_mode = ScanModeNfc;
     session_init(&app->session);
     access_audit_reset_to_scan(app);
 
@@ -294,8 +320,9 @@ int32_t access_audit_app(void* p) {
 
         if(app->screen == AccessAuditScreenScan) {
             AccessObservation candidate;
-            bool got = observation_provider_poll(app->nfc_provider, &candidate);
-            if(!got) got = rfid_provider_poll(app->rfid_provider, &candidate);
+            bool got = (app->scan_mode == ScanModeNfc) ?
+                           observation_provider_poll(app->nfc_provider, &candidate) :
+                           rfid_provider_poll(app->rfid_provider, &candidate);
             if(got) {
                 app->obs = candidate;
                 app->score = score_observation(&app->obs);
@@ -310,6 +337,14 @@ int32_t access_audit_app(void* p) {
                 if(app->screen == AccessAuditScreenScan) {
                     if(event.input.key == InputKeyBack) {
                         running = false;
+                    } else if(
+                        event.input.key == InputKeyLeft ||
+                        event.input.key == InputKeyRight) {
+                        access_audit_stop_scanning(app);
+                        app->scan_mode =
+                            (app->scan_mode == ScanModeNfc) ? ScanModeRfid : ScanModeNfc;
+                        access_audit_start_scanning(app);
+                        view_port_update(app->view_port);
                     } else if(event.input.key == InputKeyUp) {
                         access_audit_stop_scanning(app);
                         app->rlist_count = report_list(app->rlist_names);
