@@ -4,6 +4,7 @@
 #include <storage/storage.h>
 #include <furi_hal_rtc.h>
 #include <datetime/datetime.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define REPORT_DIR "/ext/apps_data/access_audit"
@@ -139,4 +140,109 @@ bool report_save_session(const ScanSession* session) {
     storage_file_free(file);
     furi_record_close(RECORD_STORAGE);
     return ok;
+}
+
+/* ── Report listing / loading ──────────────────────────────────────────── */
+
+size_t report_list(char names[REPORT_LIST_MAX][REPORT_NAME_LEN]) {
+    Storage* storage = furi_record_open(RECORD_STORAGE);
+    File* dir = storage_file_alloc(storage);
+    size_t count = 0;
+
+    if(storage_dir_open(dir, REPORT_DIR)) {
+        char fname[64];
+        while(count < REPORT_LIST_MAX &&
+              storage_dir_read(dir, NULL, fname, sizeof(fname))) {
+            /* Expect "report_YYYYMMDD_HHMMSS.txt" — 26 chars */
+            size_t len = strlen(fname);
+            if(len >= 26 && strncmp(fname, "report_", 7) == 0) {
+                strncpy(names[count], fname + 7, 15);
+                names[count][15] = '\0';
+                count++;
+            }
+        }
+        storage_dir_close(dir);
+    }
+
+    storage_file_free(dir);
+    furi_record_close(RECORD_STORAGE);
+
+    /* Sort newest first (YYYYMMDD_HHMMSS sorts lexicographically = chronologically). */
+    for(size_t i = 0; i < count; i++) {
+        for(size_t j = i + 1; j < count; j++) {
+            if(strcmp(names[i], names[j]) < 0) {
+                char tmp[REPORT_NAME_LEN];
+                memcpy(tmp, names[i], REPORT_NAME_LEN);
+                memcpy(names[i], names[j], REPORT_NAME_LEN);
+                memcpy(names[j], tmp, REPORT_NAME_LEN);
+            }
+        }
+    }
+
+    return count;
+}
+
+bool report_load(const char* name, ReportContent* out) {
+    if(!name || !out) return false;
+
+    char path[72];
+    snprintf(path, sizeof(path), REPORT_DIR "/report_%s.txt", name);
+
+    Storage* storage = furi_record_open(RECORD_STORAGE);
+    File* file = storage_file_alloc(storage);
+    bool ok = false;
+
+    if(storage_file_open(file, path, FSAM_READ, FSOM_OPEN_EXISTING)) {
+        uint64_t file_size = storage_file_size(file);
+        /* Cap at 8 KB — no legitimate report will exceed this. */
+        if(file_size > 0 && file_size <= 8192) {
+            char* buf = malloc(file_size + 1);
+            if(buf) {
+                size_t read = storage_file_read(file, buf, (size_t)file_size);
+                buf[read] = '\0';
+
+                /* Count lines to size the pointer array. */
+                size_t line_count = 0;
+                for(size_t i = 0; i < read; i++) {
+                    if(buf[i] == '\n') line_count++;
+                }
+                /* Account for a final line without trailing newline. */
+                if(read > 0 && buf[read - 1] != '\n') line_count++;
+
+                char** lines = malloc(line_count * sizeof(char*));
+                if(lines) {
+                    size_t idx = 0;
+                    lines[idx++] = buf;
+                    for(size_t i = 0; i < read; i++) {
+                        if(buf[i] == '\n') {
+                            buf[i] = '\0';
+                            if(idx < line_count && i + 1 < read) {
+                                lines[idx++] = buf + i + 1;
+                            }
+                        }
+                    }
+                    out->buf = buf;
+                    out->lines = lines;
+                    out->count = idx;
+                    ok = true;
+                } else {
+                    free(buf);
+                }
+            }
+        }
+        storage_file_close(file);
+    }
+
+    storage_file_free(file);
+    furi_record_close(RECORD_STORAGE);
+    return ok;
+}
+
+void report_content_free(ReportContent* content) {
+    if(!content) return;
+    free(content->lines);
+    free(content->buf);
+    content->lines = NULL;
+    content->buf = NULL;
+    content->count = 0;
 }
