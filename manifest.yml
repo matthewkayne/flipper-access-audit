@@ -5,7 +5,7 @@ sourcecode:
     commit_sha: 719501e483534f84fb366cd492bc8490fd7081b5
 author: Matthew Kayne
 description: "@README.md"
-changelog: "@./docs/changelog.md"
+changelog: "@./CHANGELOG.md"
 screenshots:
   - screenshots/ss0.png
   - screenshots/ss1.png
