@@ -16,7 +16,7 @@ bool report_save_session(const ScanSession* session);
 
 /* ── Report listing / loading ── */
 
-#define REPORT_LIST_MAX  20
+#define REPORT_LIST_MAX  100
 #define REPORT_NAME_LEN  28  /* "YYYYMMDD_HHMMSS\0" (16) + safety */
 
 /**
