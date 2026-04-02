@@ -18,10 +18,11 @@
 #define ICLASS_BUF_SIZE      32
 
 struct IclassProvider {
-    Nfc*       nfc;    /* borrowed — not owned */
+    Nfc*       nfc;         /* borrowed — not owned */
     BitBuffer* tx_buf;
     BitBuffer* rx_buf;
     FuriMutex* mutex;
+    bool       nfc_started; /* true only between nfc_start() and nfc_stop() */
     bool       done;
     AccessObservation pending;
 };
@@ -43,8 +44,8 @@ static NfcCommand iclass_nfc_callback(NfcEvent event, void* context) {
 
     NfcError err = nfc_poller_trx(p->nfc, p->tx_buf, p->rx_buf, ICLASS_POLLER_FWT_FC);
     /* ACTALL response is a bare SOF — IncompleteFrame is the expected result.
-     * Any other error means no card; NfcCommandReset cycles the RF field,
-     * introducing a natural inter-poll delay and preventing a tight spin. */
+     * Any other error means no card; NfcCommandReset cycles the RF field to
+     * prevent a tight spin and give natural inter-poll pacing. */
     if(err != NfcErrorNone && err != NfcErrorIncompleteFrame) {
         return NfcCommandReset;
     }
@@ -78,6 +79,9 @@ static NfcCommand iclass_nfc_callback(NfcEvent event, void* context) {
     p->pending.uid_len = ICLASS_CSN_LEN;
     bit_buffer_write_bytes(p->rx_buf, p->pending.uid, ICLASS_CSN_LEN);
     p->done = true;
+    /* NfcCommandStop will auto-stop the NFC worker — mark as no longer running
+     * so iclass_provider_stop() does not call nfc_stop() a second time. */
+    p->nfc_started = false;
 
     furi_mutex_release(p->mutex);
 
@@ -95,12 +99,13 @@ IclassProvider* iclass_provider_alloc(Nfc* nfc) {
     IclassProvider* p = malloc(sizeof(IclassProvider));
     if(!p) return NULL;
 
-    p->nfc    = nfc;  /* borrowed — not owned */
-    p->tx_buf = bit_buffer_alloc(ICLASS_BUF_SIZE);
-    p->rx_buf = bit_buffer_alloc(ICLASS_BUF_SIZE);
-    p->mutex  = furi_mutex_alloc(FuriMutexTypeNormal);
-    p->done   = false;
-    p->pending = (AccessObservation){0};
+    p->nfc         = nfc;   /* borrowed — not owned */
+    p->tx_buf      = bit_buffer_alloc(ICLASS_BUF_SIZE);
+    p->rx_buf      = bit_buffer_alloc(ICLASS_BUF_SIZE);
+    p->mutex       = furi_mutex_alloc(FuriMutexTypeNormal);
+    p->nfc_started = false;
+    p->done        = false;
+    p->pending     = (AccessObservation){0};
 
     if(!p->tx_buf || !p->rx_buf || !p->mutex) {
         if(p->tx_buf) bit_buffer_free(p->tx_buf);
@@ -127,25 +132,38 @@ void iclass_provider_start(IclassProvider* provider) {
     if(!provider) return;
 
     furi_mutex_acquire(provider->mutex, FuriWaitForever);
+    bool already_running = provider->nfc_started;
     provider->done = false;
     furi_mutex_release(provider->mutex);
 
-    /* Ensure the NFC hardware is fully stopped before reconfiguring.
-     * The Nfc* may be in an intermediate state after NfcScanner last used it. */
-    nfc_stop(provider->nfc);
+    if(already_running) return;
 
-    /* Configure for ISO15693 polling with HID iCLASS timing parameters */
+    /* The Nfc* is idle here — NfcScanner already called nfc_stop() internally
+     * when observation_provider_stop() ran. Do NOT call nfc_stop() again as
+     * that asserts nfc->is_started and would crash. */
     nfc_config(provider->nfc, NfcModePoller, NfcTechIso15693);
     nfc_set_guard_time_us(provider->nfc, 10000);
     nfc_set_fdt_poll_fc(provider->nfc, 5000);
     nfc_set_fdt_poll_poll_us(provider->nfc, 1000);
-
     nfc_start(provider->nfc, iclass_nfc_callback, provider);
+
+    furi_mutex_acquire(provider->mutex, FuriWaitForever);
+    provider->nfc_started = true;
+    furi_mutex_release(provider->mutex);
 }
 
 void iclass_provider_stop(IclassProvider* provider) {
     if(!provider) return;
-    nfc_stop(provider->nfc);
+
+    /* Atomically take the started flag to avoid double nfc_stop(). */
+    furi_mutex_acquire(provider->mutex, FuriWaitForever);
+    bool started = provider->nfc_started;
+    provider->nfc_started = false;
+    furi_mutex_release(provider->mutex);
+
+    if(started) {
+        nfc_stop(provider->nfc);
+    }
 }
 
 bool iclass_provider_poll(IclassProvider* provider, AccessObservation* out) {
