@@ -780,3 +780,7 @@ bool observation_provider_poll(ObservationProvider* provider, AccessObservation*
     return false;
 }
 
+Nfc* observation_provider_get_nfc(ObservationProvider* provider) {
+    return provider ? provider->nfc : NULL;
+}
+

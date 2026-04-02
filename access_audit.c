@@ -9,7 +9,7 @@
 #include "core/report.h"
 #include "core/observation_provider.h"
 #include "core/rfid_provider.h"
-#include "core/picopass_provider.h"
+#include "core/iclass_provider.h"
 
 typedef enum {
     AccessAuditScreenScan,
@@ -31,7 +31,7 @@ typedef struct {
     FuriMessageQueue* event_queue;
     ObservationProvider* nfc_provider;
     RfidProvider* rfid_provider;
-    PicopassProvider* iclass_provider;
+    IclassProvider* iclass_provider;
     ScanMode scan_mode;
     ScanSession session;
     AccessObservation obs;
@@ -78,10 +78,11 @@ static void access_audit_start_scanning(AccessAuditApp* app) {
     } else {
         /* iCLASS — lazy alloc */
         if(!app->iclass_provider) {
-            app->iclass_provider = picopass_provider_alloc();
+            app->iclass_provider = iclass_provider_alloc(
+                observation_provider_get_nfc(app->nfc_provider));
         }
         if(app->iclass_provider) {
-            picopass_provider_start(app->iclass_provider);
+            iclass_provider_start(app->iclass_provider);
         }
     }
 }
@@ -93,7 +94,7 @@ static void access_audit_stop_scanning(AccessAuditApp* app) {
         rfid_provider_free(app->rfid_provider);
         app->rfid_provider = NULL;
     } else if(app->scan_mode == ScanModeIclass && app->iclass_provider) {
-        picopass_provider_free(app->iclass_provider);
+        iclass_provider_free(app->iclass_provider);
         app->iclass_provider = NULL;
     }
 }
@@ -394,7 +395,7 @@ int32_t access_audit_app(void* p) {
                     observation_provider_poll(app->nfc_provider, &candidate) :
                 (app->scan_mode == ScanModeRfid) ?
                     (app->rfid_provider ? rfid_provider_poll(app->rfid_provider, &candidate) : false) :
-                    (app->iclass_provider ? picopass_provider_poll(app->iclass_provider, &candidate) : false);
+                    (app->iclass_provider ? iclass_provider_poll(app->iclass_provider, &candidate) : false);
             if(got) {
                 app->obs = candidate;
                 app->score = score_observation(&app->obs);
@@ -572,7 +573,7 @@ int32_t access_audit_app(void* p) {
 
     report_content_free(&app->rviewer);
     rfid_provider_free(app->rfid_provider);
-    picopass_provider_free(app->iclass_provider);
+    iclass_provider_free(app->iclass_provider);
     observation_provider_free(app->nfc_provider);
 
     view_port_enabled_set(app->view_port, false);

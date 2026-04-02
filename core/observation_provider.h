@@ -33,3 +33,10 @@ void observation_provider_stop(ObservationProvider* provider);
  */
 bool observation_provider_poll(ObservationProvider* provider, AccessObservation* out);
 
+/**
+ * Returns the underlying Nfc* instance.
+ * Only borrow this when the provider is stopped — used by IclassProvider to
+ * share a single NFC hardware handle and avoid hardware contention.
+ */
+Nfc* observation_provider_get_nfc(ObservationProvider* provider);
+
