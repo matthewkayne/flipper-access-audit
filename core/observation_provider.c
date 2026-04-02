@@ -505,9 +505,22 @@ static NfcCommand mf_plus_poller_cb(NfcGenericEvent event, void* context) {
 /* -------------------------------------------------------------------------
  * ISO15693-3 poller callback  (runs on NFC worker thread)
  *
- * Fires Iso15693_3PollerEventTypeReady after inventory + system-info read.
- * UID byte[6] holds the IC manufacturer code per ISO/IEC 15693-3:
- *   0x02 = STMicro (used in HID iCLASS DP)
+ * EventTypeReady  — full activation succeeded (inventory + system info).
+ * EventTypeError  — activation partially failed (e.g. card responded to
+ *                   inventory but not to Get System Info, which is the case
+ *                   for HID iCLASS DP).  We still try nfc_poller_get_data
+ *                   because the UID is populated after the inventory step
+ *                   regardless of whether system info succeeded.
+ *
+ * ISO15693 UID layout (as stored by the Flipper, UID received LSB-first):
+ *   uid[0..5] = serial number bytes
+ *   uid[6]    = IC manufacturer code (ISO/IEC 7816-6)
+ *   uid[7]    = 0xE0 (ISO15693 tag marker)
+ *
+ * Manufacturer codes relevant to access control:
+ *   0x07 = Texas Instruments — used in HID iCLASS DP
+ *   0x04 = NXP               — used in SLIX/ICODE
+ *   0x02 = STMicroelectronics
  * -------------------------------------------------------------------------
  */
 
@@ -517,38 +530,38 @@ static NfcCommand iso15693_3_poller_cb(NfcGenericEvent event, void* context) {
 
     furi_mutex_acquire(p->mutex, FuriWaitForever);
 
-    if(iso_event->type == Iso15693_3PollerEventTypeReady) {
-        const Iso15693_3Data* data = (const Iso15693_3Data*)nfc_poller_get_data(p->poller);
+    /* Try to extract data on both Ready and Error — the UID is populated
+       after inventory even if Get System Info fails (e.g. iCLASS DP). */
+    const Iso15693_3Data* data = (const Iso15693_3Data*)nfc_poller_get_data(p->poller);
 
-        if(data) {
-            size_t uid_len = 0;
-            const uint8_t* uid = iso15693_3_get_uid(data, &uid_len);
+    if(data) {
+        size_t uid_len = 0;
+        const uint8_t* uid = iso15693_3_get_uid(data, &uid_len);
 
-            p->pending = (AccessObservation){0};
-            p->pending.tech = TechTypeNfc13Mhz;
-            p->pending.metadata_complete = true;
+        p->pending = (AccessObservation){0};
+        p->pending.tech = TechTypeNfc13Mhz;
+        /* metadata_complete only if full activation succeeded */
+        p->pending.metadata_complete =
+            (iso_event->type == Iso15693_3PollerEventTypeReady);
 
-            /* Manufacturer code is byte[6] of the 8-byte ISO15693 UID.
-             * 0x02 = STMicroelectronics — used in HID iCLASS DP credentials. */
-            if(uid && uid_len == 8 && uid[6] == 0x02) {
-                p->pending.card_type = CardTypeHidIclass;
-            } else {
-                p->pending.card_type = CardTypeIso15693;
-            }
-
-            if(uid && uid_len > 0) {
-                p->pending.uid_present = true;
-                p->pending.uid_len =
-                    uid_len <= sizeof(p->pending.uid) ? uid_len : sizeof(p->pending.uid);
-                for(size_t i = 0; i < p->pending.uid_len; i++) {
-                    p->pending.uid[i] = uid[i];
-                }
-            }
-
-            p->state = ProviderStateDone;
+        /* Classify by manufacturer code in uid[6] (LSB-first UID storage). */
+        if(uid && uid_len == 8 && uid[6] == 0x07) {
+            /* TI — HID iCLASS DP */
+            p->pending.card_type = CardTypeHidIclass;
         } else {
-            p->state = ProviderStateReadFailed;
+            p->pending.card_type = CardTypeIso15693;
         }
+
+        if(uid && uid_len > 0) {
+            p->pending.uid_present = true;
+            p->pending.uid_len =
+                uid_len <= sizeof(p->pending.uid) ? uid_len : sizeof(p->pending.uid);
+            for(size_t i = 0; i < p->pending.uid_len; i++) {
+                p->pending.uid[i] = uid[i];
+            }
+        }
+
+        p->state = ProviderStateDone;
     } else {
         p->state = ProviderStateReadFailed;
     }
