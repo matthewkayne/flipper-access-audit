@@ -24,7 +24,8 @@
 
 struct IclassProvider {
     Nfc*       nfc;     /* borrowed — not owned */
-    NfcPoller* poller;  /* owned ISO15693_3 poller, NULL when stopped */
+    NfcPoller* poller;  /* active poller; NULL when not scanning */
+    NfcPoller* stale;   /* completed poller awaiting cleanup on next start/stop */
     BitBuffer* tx_buf;
     BitBuffer* rx_buf;
     FuriMutex* mutex;
@@ -136,7 +137,9 @@ static NfcCommand iclass_poller_cb(NfcGenericEvent event, void* context) {
         }
     }
 
-    /* ── Build observation ── */
+    /* ── Build observation ──
+     * Move this poller to the stale slot so start() can free it on the next
+     * scan request without mistaking a completed scan for one still running. */
     furi_mutex_acquire(p->mutex, FuriWaitForever);
 
     p->pending = (AccessObservation){0};
@@ -147,6 +150,8 @@ static NfcCommand iclass_poller_cb(NfcGenericEvent event, void* context) {
     p->pending.uid_len = ICLASS_CSN_LEN;
     memcpy(p->pending.uid, csn, ICLASS_CSN_LEN);
     p->done = true;
+    p->stale = p->poller;  /* hand off ownership — poller will stop after we return */
+    p->poller = NULL;      /* mark as not running so start() creates a fresh poller */
 
     furi_mutex_release(p->mutex);
 
@@ -166,6 +171,7 @@ IclassProvider* iclass_provider_alloc(Nfc* nfc) {
 
     p->nfc    = nfc;   /* borrowed — not owned */
     p->poller = NULL;
+    p->stale  = NULL;
     p->tx_buf = bit_buffer_alloc(ICLASS_BUF_SIZE);
     p->rx_buf = bit_buffer_alloc(ICLASS_BUF_SIZE);
     p->mutex  = furi_mutex_alloc(FuriMutexTypeNormal);
@@ -197,9 +203,17 @@ void iclass_provider_start(IclassProvider* provider) {
     if(!provider) return;
 
     furi_mutex_acquire(provider->mutex, FuriWaitForever);
+    NfcPoller* stale  = provider->stale;
+    provider->stale   = NULL;
     bool already_running = (provider->poller != NULL);
     provider->done = false;
     furi_mutex_release(provider->mutex);
+
+    /* Free any poller that completed naturally via NfcCommandStop. */
+    if(stale) {
+        nfc_poller_stop(stale);
+        nfc_poller_free(stale);
+    }
 
     if(already_running) return;
 
@@ -221,12 +235,18 @@ void iclass_provider_stop(IclassProvider* provider) {
 
     furi_mutex_acquire(provider->mutex, FuriWaitForever);
     NfcPoller* poller = provider->poller;
+    NfcPoller* stale  = provider->stale;
     provider->poller = NULL;
+    provider->stale  = NULL;
     furi_mutex_release(provider->mutex);
 
     if(poller) {
         nfc_poller_stop(poller);
         nfc_poller_free(poller);
+    }
+    if(stale) {
+        nfc_poller_stop(stale);
+        nfc_poller_free(stale);
     }
 }
 
