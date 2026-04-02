@@ -15,9 +15,10 @@
  */
 #define ICLASS_CMD_ACTALL    0x0A  /* SOF-only response (IncompleteFrame expected) */
 #define ICLASS_CMD_IDENTIFY  0x0C  /* Response: CSN(8) + iCLASS CRC16(2) */
-#define ICLASS_CMD_SELECT    0x83  /* Select by CSN; response: config(8) + CRC16(2) */
+#define ICLASS_CMD_SELECT    0x81  /* Select by CSN; response: CC(8) + CRC16(2) */
+#define ICLASS_CMD_READ      0x0C  /* READ: same opcode as IDENTIFY + block addr byte */
 #define ICLASS_CSN_LEN       8
-#define ICLASS_CFG_LEN       8    /* SELECT response payload length */
+#define ICLASS_BLOCK_LEN     8    /* All iCLASS blocks are 8 bytes */
 #define ICLASS_POLLER_FWT_FC 100000 /* Frame wait time in FC units (~7.4 ms) */
 #define ICLASS_BUF_SIZE      32
 
@@ -89,28 +90,49 @@ static NfcCommand iclass_poller_cb(NfcGenericEvent event, void* context) {
     bit_buffer_write_bytes(p->rx_buf, csn, ICLASS_CSN_LEN);
 
     /* ── Step 3: SELECT ──
-     * SELECT returns an 8-byte configuration block.  Byte 5 is the chip-config
-     * byte; its lower 5 bits encode the memory variant:
-     *   0x00 = 2k   0x06 = 16k   0x17 = 32k
-     * Fall back to the generic Legacy type if SELECT fails or is unrecognised. */
+     * Selects the card by CSN so subsequent READ commands are accepted.
+     * The response (CC/auth-challenge bytes) is discarded — we only care that
+     * the card is now in the selected state.  Failure here is non-fatal. */
     bit_buffer_reset(p->tx_buf);
     bit_buffer_append_byte(p->tx_buf, ICLASS_CMD_SELECT);
     bit_buffer_append_bytes(p->tx_buf, csn, ICLASS_CSN_LEN);
+    iso13239_crc_append(Iso13239CrcTypePicopass, p->tx_buf);
+    nfc_poller_trx(p->nfc, p->tx_buf, p->rx_buf, ICLASS_POLLER_FWT_FC);
+    /* result intentionally ignored */
+
+    /* ── Step 4: READ block 1 (configuration block) ──
+     * Command 0x0C with an address byte = READ (distinct from bare IDENTIFY).
+     * Block 1 layout (all bytes 8-bit):
+     *   [0] App_Limit  — index of last block in the application area
+     *   [1-2] OTP
+     *   [3] Block Write Lock
+     *   [4] Chip Config  — upper nibble 0 = standard 2k, nonzero = extended
+     *   [5] Memory Config
+     *   [6] EAS
+     *   [7] Fuses
+     * For a standard HID iCLASS 2k card chip_cfg (byte 4) == 0x00.
+     * For 16k/32k cards chip_cfg upper nibble is nonzero; app_limit (byte 0)
+     * is ≤ 0x7F for 16k and > 0x7F for 32k. */
+    bit_buffer_reset(p->tx_buf);
+    bit_buffer_append_byte(p->tx_buf, ICLASS_CMD_READ);
+    bit_buffer_append_byte(p->tx_buf, 0x01); /* block 1 */
     iso13239_crc_append(Iso13239CrcTypePicopass, p->tx_buf);
 
     err = nfc_poller_trx(p->nfc, p->tx_buf, p->rx_buf, ICLASS_POLLER_FWT_FC);
 
     CardType card_type = CardTypeHidIclassLegacy;
     if(err == NfcErrorNone &&
-       bit_buffer_get_size_bytes(p->rx_buf) == ICLASS_CFG_LEN + 2 &&
+       bit_buffer_get_size_bytes(p->rx_buf) == ICLASS_BLOCK_LEN + 2 &&
        iso13239_crc_check(Iso13239CrcTypePicopass, p->rx_buf)) {
         iso13239_crc_trim(p->rx_buf);
-        uint8_t chip_cfg = bit_buffer_get_byte(p->rx_buf, 5);
-        switch(chip_cfg & 0x1F) {
-        case 0x00: card_type = CardTypeHidIclassLegacy2k;  break;
-        case 0x06: card_type = CardTypeHidIclassLegacy16k; break;
-        case 0x17: card_type = CardTypeHidIclassLegacy32k; break;
-        default:   card_type = CardTypeHidIclassLegacy;    break;
+        uint8_t chip_cfg  = bit_buffer_get_byte(p->rx_buf, 4);
+        uint8_t app_limit = bit_buffer_get_byte(p->rx_buf, 0);
+        if((chip_cfg & 0xF0) == 0x00) {
+            card_type = CardTypeHidIclassLegacy2k;
+        } else if(app_limit <= 0x7F) {
+            card_type = CardTypeHidIclassLegacy16k;
+        } else {
+            card_type = CardTypeHidIclassLegacy32k;
         }
     }
 
