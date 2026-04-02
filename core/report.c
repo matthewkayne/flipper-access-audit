@@ -234,7 +234,10 @@ bool report_save_session(const ScanSession* session) {
     furi_hal_rtc_get_datetime(&dt);
 
     Storage* storage = furi_record_open(RECORD_STORAGE);
-    /* Create directory if it doesn't exist — ignore error if already present. */
+    /* Ensure the full directory path exists.  storage_common_mkdir() only
+     * creates a single level, so create parents first (errors ignored — they
+     * may already exist). */
+    storage_common_mkdir(storage, "/ext/apps_data");
     storage_common_mkdir(storage, REPORT_DIR);
 
     char path[72];

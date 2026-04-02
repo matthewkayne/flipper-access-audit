@@ -38,6 +38,7 @@ typedef struct {
     AuditScore score;
     AccessAuditScreen screen;
     int saved_ticks; /* countdown to auto-exit after save confirmation */
+    bool save_ok;    /* result of the last report_save_session() call */
     uint8_t kb_row;  /* keyboard cursor row (0-3) */
     uint8_t kb_col;  /* keyboard cursor column */
     /* Report list */
@@ -184,12 +185,16 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
 
         canvas_draw_line(canvas, 0, 13, 127, 13);
 
-        canvas_draw_str(canvas, 2, 32, "Report saved");
+        canvas_draw_str(canvas, 2, 32, app->save_ok ? "Report saved" : "Save failed!");
 
         canvas_set_font(canvas, FontSecondary);
-        snprintf(line, sizeof(line), "%u card(s) written to SD", (unsigned)app->session.count);
-        canvas_draw_str(canvas, 2, 46, line);
-        canvas_draw_str(canvas, 2, 62, "Press any key to exit");
+        if(app->save_ok) {
+            snprintf(line, sizeof(line), "%u card(s) written to SD", (unsigned)app->session.count);
+            canvas_draw_str(canvas, 2, 46, line);
+        } else {
+            canvas_draw_str(canvas, 2, 46, "Check SD card");
+        }
+        canvas_draw_str(canvas, 2, 62, "Press any key to continue");
         return;
     }
 
@@ -550,7 +555,7 @@ int32_t access_audit_app(void* p) {
                                 view_port_update(app->view_port);
                             } else {
                                 /* OK — save with name */
-                                report_save_session(&app->session);
+                                app->save_ok = report_save_session(&app->session);
                                 app->screen = AccessAuditScreenSaved;
                                 app->saved_ticks = 12;
                                 view_port_update(app->view_port);
