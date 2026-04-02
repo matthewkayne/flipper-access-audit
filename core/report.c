@@ -114,6 +114,7 @@ static const char* report_advice(CardType type) {
     case CardTypeMifareDesfireLight:
         return "Verify key diversification and mutual auth are configured.";
     case CardTypeHidIclass:
+    case CardTypeHidIclassLegacy:
         return "iCLASS DES/3DES master key is publicly known. Upgrade to iCLASS SE/Seos.";
     case CardTypeFelica:
         return "Verify FeliCa application crypto is properly configured.";

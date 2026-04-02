@@ -87,7 +87,7 @@ static NfcCommand iclass_poller_cb(NfcGenericEvent event, void* context) {
 
     p->pending = (AccessObservation){0};
     p->pending.tech = TechTypeNfc13Mhz;
-    p->pending.card_type = CardTypeHidIclass;
+    p->pending.card_type = CardTypeHidIclassLegacy;
     p->pending.metadata_complete = true;
     p->pending.uid_present = true;
     p->pending.uid_len = ICLASS_CSN_LEN;
