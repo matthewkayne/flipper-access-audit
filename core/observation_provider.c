@@ -11,6 +11,8 @@
 #include <nfc/protocols/mf_desfire/mf_desfire_poller.h>
 #include <nfc/protocols/mf_plus/mf_plus.h>
 #include <nfc/protocols/mf_plus/mf_plus_poller.h>
+#include <nfc/protocols/iso15693_3/iso15693_3.h>
+#include <nfc/protocols/iso15693_3/iso15693_3_poller.h>
 
 #include "observation_provider.h"
 
@@ -164,6 +166,13 @@ static NfcProtocol uid_transport(const NfcProtocol* protos, size_t count) {
         if(protos[i] == NfcProtocolIso14443_3b ||
            nfc_protocol_has_parent(protos[i], NfcProtocolIso14443_3b)) {
             return NfcProtocolIso14443_3b;
+        }
+    }
+    /* ISO15693 — covers HID iCLASS DP, SLIX, and generic ISO15693 tags */
+    for(size_t i = 0; i < count; i++) {
+        if(protos[i] == NfcProtocolIso15693_3 ||
+           nfc_protocol_has_parent(protos[i], NfcProtocolIso15693_3)) {
+            return NfcProtocolIso15693_3;
         }
     }
     /* Fallback: use first detected protocol */
@@ -494,6 +503,61 @@ static NfcCommand mf_plus_poller_cb(NfcGenericEvent event, void* context) {
 }
 
 /* -------------------------------------------------------------------------
+ * ISO15693-3 poller callback  (runs on NFC worker thread)
+ *
+ * Fires Iso15693_3PollerEventTypeReady after inventory + system-info read.
+ * UID byte[6] holds the IC manufacturer code per ISO/IEC 15693-3:
+ *   0x02 = STMicro (used in HID iCLASS DP)
+ * -------------------------------------------------------------------------
+ */
+
+static NfcCommand iso15693_3_poller_cb(NfcGenericEvent event, void* context) {
+    ObservationProvider* p = context;
+    Iso15693_3PollerEvent* iso_event = (Iso15693_3PollerEvent*)event.event_data;
+
+    furi_mutex_acquire(p->mutex, FuriWaitForever);
+
+    if(iso_event->type == Iso15693_3PollerEventTypeReady) {
+        const Iso15693_3Data* data = (const Iso15693_3Data*)nfc_poller_get_data(p->poller);
+
+        if(data) {
+            size_t uid_len = 0;
+            const uint8_t* uid = iso15693_3_get_uid(data, &uid_len);
+
+            p->pending = (AccessObservation){0};
+            p->pending.tech = TechTypeNfc13Mhz;
+            p->pending.metadata_complete = true;
+
+            /* Manufacturer code is byte[6] of the 8-byte ISO15693 UID.
+             * 0x02 = STMicroelectronics — used in HID iCLASS DP credentials. */
+            if(uid && uid_len == 8 && uid[6] == 0x02) {
+                p->pending.card_type = CardTypeHidIclass;
+            } else {
+                p->pending.card_type = CardTypeIso15693;
+            }
+
+            if(uid && uid_len > 0) {
+                p->pending.uid_present = true;
+                p->pending.uid_len =
+                    uid_len <= sizeof(p->pending.uid) ? uid_len : sizeof(p->pending.uid);
+                for(size_t i = 0; i < p->pending.uid_len; i++) {
+                    p->pending.uid[i] = uid[i];
+                }
+            }
+
+            p->state = ProviderStateDone;
+        } else {
+            p->state = ProviderStateReadFailed;
+        }
+    } else {
+        p->state = ProviderStateReadFailed;
+    }
+
+    furi_mutex_release(p->mutex);
+    return NfcCommandStop;
+}
+
+/* -------------------------------------------------------------------------
  * Internal helpers (main thread only — no races with each other)
  * -------------------------------------------------------------------------
  */
@@ -523,6 +587,8 @@ static NfcGenericCallback callback_for_protocol(NfcProtocol protocol) {
         return mf_ultralight_poller_cb;
     case NfcProtocolIso14443_3a:
         return iso14443_3a_poller_cb;
+    case NfcProtocolIso15693_3:
+        return iso15693_3_poller_cb;
     default:
         return NULL;
     }

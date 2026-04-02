@@ -45,6 +45,7 @@ typedef enum {
     CardTypeIso14443A,
     CardTypeIso14443B,
     CardTypeIso15693,
+    CardTypeHidIclass,   /* HID iCLASS (ISO15693-based, manufacturer 0x02) */
     CardTypeFelica,
     CardTypeSlix,
     CardTypeSt25tb,
