@@ -42,10 +42,11 @@ static NfcCommand iclass_nfc_callback(NfcEvent event, void* context) {
     bit_buffer_append_byte(p->tx_buf, ICLASS_CMD_ACTALL);
 
     NfcError err = nfc_poller_trx(p->nfc, p->tx_buf, p->rx_buf, ICLASS_POLLER_FWT_FC);
-    /* ACTALL response is a bare SOF — IncompleteFrame is the expected result */
+    /* ACTALL response is a bare SOF — IncompleteFrame is the expected result.
+     * Any other error means no card; NfcCommandReset cycles the RF field,
+     * introducing a natural inter-poll delay and preventing a tight spin. */
     if(err != NfcErrorNone && err != NfcErrorIncompleteFrame) {
-        furi_delay_ms(50);
-        return NfcCommandContinue;
+        return NfcCommandReset;
     }
 
     /* ── Step 2: IDENTIFY ── */
@@ -54,16 +55,15 @@ static NfcCommand iclass_nfc_callback(NfcEvent event, void* context) {
 
     err = nfc_poller_trx(p->nfc, p->tx_buf, p->rx_buf, ICLASS_POLLER_FWT_FC);
     if(err != NfcErrorNone) {
-        furi_delay_ms(50);
-        return NfcCommandContinue;
+        return NfcCommandReset;
     }
 
     /* Expect CSN(8) + CRC(2) = 10 bytes; verify and strip CRC */
     if(bit_buffer_get_size_bytes(p->rx_buf) != ICLASS_CSN_LEN + 2) {
-        return NfcCommandContinue;
+        return NfcCommandReset;
     }
     if(!iso13239_crc_check(Iso13239CrcTypePicopass, p->rx_buf)) {
-        return NfcCommandContinue;
+        return NfcCommandReset;
     }
     iso13239_crc_trim(p->rx_buf);
 
@@ -129,6 +129,10 @@ void iclass_provider_start(IclassProvider* provider) {
     furi_mutex_acquire(provider->mutex, FuriWaitForever);
     provider->done = false;
     furi_mutex_release(provider->mutex);
+
+    /* Ensure the NFC hardware is fully stopped before reconfiguring.
+     * The Nfc* may be in an intermediate state after NfcScanner last used it. */
+    nfc_stop(provider->nfc);
 
     /* Configure for ISO15693 polling with HID iCLASS timing parameters */
     nfc_config(provider->nfc, NfcModePoller, NfcTechIso15693);
