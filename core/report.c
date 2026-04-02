@@ -1,11 +1,14 @@
 #include "report.h"
 #include "rules.h"
 #include "scoring.h"
+#include <furi.h>
 #include <storage/storage.h>
 #include <furi_hal_rtc.h>
 #include <datetime/datetime.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define TAG "AccessAudit"
 
 #define REPORT_DIR "/ext/apps_data/access_audit"
 #define REPORT_APP_VERSION "1.0"
@@ -235,7 +238,10 @@ bool report_save_session(const ScanSession* session) {
 
     Storage* storage = furi_record_open(RECORD_STORAGE);
     /* Ensure the full directory path exists — creates all intermediate dirs. */
-    storage_simply_mkdir(storage, REPORT_DIR);
+    bool mkdir_ok = storage_simply_mkdir(storage, REPORT_DIR);
+    if(!mkdir_ok) {
+        FURI_LOG_E(TAG, "storage_simply_mkdir failed for: %s", REPORT_DIR);
+    }
 
     char path[72];
     snprintf(
@@ -251,6 +257,10 @@ bool report_save_session(const ScanSession* session) {
 
     File* file = storage_file_alloc(storage);
     bool open_ok = storage_file_open(file, path, FSAM_WRITE, FSOM_CREATE_ALWAYS);
+    if(!open_ok) {
+        FURI_LOG_E(TAG, "open failed: %s err=%u", path,
+            (unsigned)storage_file_get_error(file));
+    }
 
     if(open_ok) {
         char buf[64];

@@ -569,7 +569,7 @@ int32_t access_audit_app(void* p) {
                             view_port_update(app->view_port);
                         } else {
                             /* Empty name — save without name */
-                            report_save_session(&app->session);
+                            app->save_ok = report_save_session(&app->session);
                             app->screen = AccessAuditScreenSaved;
                             app->saved_ticks = 12;
                             view_port_update(app->view_port);
