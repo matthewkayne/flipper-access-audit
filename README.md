@@ -13,10 +13,10 @@ Tap a card, get an instant risk score and plain-English advice. Save a named ses
 - **Deep card classification** — MIFARE Classic 1K/4K/Mini, DESFire EV1/EV2/EV3/Light, MIFARE Plus SL1/SL2/SL3, Ultralight C, NTAG203/213/215/216, NTAG I2C, ISO14443-A/B, ISO15693, FeliCa, SLIX, ST25TB; 125 kHz RFID: EM4100, HID H10301, HID Generic, Indala; HID iCLASS (Legacy) 2k/16k/32k
 - **Instant risk score** — 0–100 score with HIGH RISK / MODERATE / LOW RISK / SECURE label
 - **Per-card advice** — plain-English recommendation written to every report entry
-- **Multi-scan sessions** — scan up to 20 cards per session with a live counter
+- **Multi-scan sessions** — scan up to 20 cards per session; live `[N]` counter visible on both scan and result screens
 - **Named sessions** — optionally label a session before saving using an on-screen QWERTY keyboard
-- **SD card reports** — timestamped `.txt` report saved to `/ext/apps_data/access_audit/` with per-card advice and session-level advisory
-- **On-device report viewer** — browse and scroll saved reports without leaving the app
+- **SD card reports** — timestamped `.txt` report saved to `/ext/apps_data/access_audit/` with per-card UID, SAK/ATQA, advice, and session-level advisory
+- **On-device report viewer** — browse, scroll, and delete saved reports without leaving the app
 - **NFC + RFID + iCLASS** — Left/Right cycles between 13.56 MHz NFC, 125 kHz RFID, and HID iCLASS scanning
 
 ---
@@ -48,7 +48,7 @@ ufbt
 | Result | **OK** rescan · **Back** save session and proceed to naming |
 | Name session | QWERTY keyboard · **OK key** save with name · **Back** skip naming / backspace |
 | Reports list | **Up/Down** scroll · **OK** open · **Back** return to scan |
-| Report viewer | **Up/Down** scroll lines · **Back** return to list |
+| Report viewer | **Up/Down** scroll lines · **Back** return to list · **Hold Back** delete report |
 
 ### Score interpretation
 
@@ -123,6 +123,9 @@ access_audit.c            — app loop, screens, input handling
 - [x] v1.0.0 stable release
 - [x] HID iCLASS scanning with memory variant detection
 - [x] Flipper App Catalog submission
+- [x] Delete report from on-device viewer
+- [x] SAK/ATQA raw values captured and written to reports
+- [x] Session card count visible on scan screen
 
 ---
 

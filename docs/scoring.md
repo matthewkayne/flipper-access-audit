@@ -118,14 +118,14 @@ If both `modern_crypto` and `legacy_family` fire simultaneously (which cannot ha
 
 | Step | Value |
 |---|---|
-| `uid_no_memory` fires (UID present, no protected memory, metadata complete — so `identifier_only_pattern` fires instead) | — |
-| `identifier_only_pattern` fires | +35 |
+| `identifier_only_pattern` fires (`uid_present=true`, `user_memory_present=false`, `metadata_complete=true`) | +35 |
+| `uid_no_memory` does **not** fire — its guard prevents it when `identifier_only_pattern` already applies | 0 |
 | Score | 35 |
 | Max severity | HIGH |
 
 **Result: HIGH RISK · 35/100**
 
-> Note: NTAG213 with `metadata_complete=true` hits `identifier_only_pattern` rather than `uid_no_memory`. If metadata is incomplete, it hits `uid_no_memory` (+20) and `incomplete_evidence` (+10) = 30, MODERATE.
+> If the poller returned incomplete metadata (`metadata_complete=false`), `identifier_only_pattern` does not fire. Instead: `uid_no_memory` (+20) + `incomplete_evidence` (+10, −20% confidence) = 30, MODERATE · 70% confidence.
 
 ---
 

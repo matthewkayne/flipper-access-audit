@@ -136,3 +136,5 @@ ufbt launch   # build and deploy to connected Flipper (requires USB)
 ```
 
 CI builds against official release, official dev, Momentum release, and Momentum dev SDKs on every push. All four must pass before merging.
+
+When tagging a release, `release.yml` checks that `fap_version` in `application.fam` matches the tag's MAJOR.MINOR before building. Always bump `fap_version=(X, Y)` to match the intended tag.
