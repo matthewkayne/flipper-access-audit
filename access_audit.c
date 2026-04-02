@@ -18,6 +18,7 @@ typedef enum {
     AccessAuditScreenSaved,
     AccessAuditScreenReportList,
     AccessAuditScreenReportViewer,
+    AccessAuditScreenDeleteConfirm,
 } AccessAuditScreen;
 
 typedef enum {
@@ -246,7 +247,19 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
             canvas_draw_str(canvas, 2, 22 + (int)i * 11, app->rviewer.lines[idx]);
         }
 
-        canvas_draw_str(canvas, 2, 62, "Up/Dn:scroll  Back:list");
+        canvas_draw_str(canvas, 2, 62, "Up/Dn:scroll  Hold Back:del");
+        return;
+    }
+
+    if(app->screen == AccessAuditScreenDeleteConfirm) {
+        canvas_set_font(canvas, FontPrimary);
+        canvas_draw_str(canvas, 2, 10, "Delete report?");
+        canvas_draw_line(canvas, 0, 13, 127, 13);
+
+        canvas_set_font(canvas, FontSecondary);
+        canvas_draw_str(canvas, 2, 28, app->rlist_names[app->rlist_cursor]);
+        canvas_draw_str(canvas, 2, 46, "OK: delete");
+        canvas_draw_str(canvas, 2, 58, "Back: cancel");
         return;
     }
 
@@ -473,11 +486,7 @@ int32_t access_audit_app(void* p) {
                         }
                     }
                 } else if(app->screen == AccessAuditScreenReportViewer) {
-                    if(event.input.key == InputKeyBack) {
-                        report_content_free(&app->rviewer);
-                        app->screen = AccessAuditScreenReportList;
-                        view_port_update(app->view_port);
-                    } else if(event.input.key == InputKeyUp) {
+                    if(event.input.key == InputKeyUp) {
                         if(app->rviewer_scroll > 0) {
                             app->rviewer_scroll--;
                             view_port_update(app->view_port);
@@ -488,6 +497,10 @@ int32_t access_audit_app(void* p) {
                             app->rviewer_scroll++;
                             view_port_update(app->view_port);
                         }
+                    } else if(event.input.key == InputKeyBack) {
+                        report_content_free(&app->rviewer);
+                        app->screen = AccessAuditScreenReportList;
+                        view_port_update(app->view_port);
                     }
                 } else if(app->screen == AccessAuditScreenResult) {
                     if(event.input.key == InputKeyOk) {
@@ -580,6 +593,28 @@ int32_t access_audit_app(void* p) {
                     session_init(&app->session);
                     access_audit_reset_to_scan(app);
                     access_audit_start_scanning(app);
+                    view_port_update(app->view_port);
+                } else if(app->screen == AccessAuditScreenDeleteConfirm) {
+                    if(event.input.key == InputKeyOk) {
+                        report_content_free(&app->rviewer);
+                        report_delete(app->rlist_names[app->rlist_cursor]);
+                        app->rlist_count = report_list(app->rlist_names);
+                        app->rlist_top = 0;
+                        app->rlist_cursor = 0;
+                        app->screen = AccessAuditScreenReportList;
+                        view_port_update(app->view_port);
+                    } else if(event.input.key == InputKeyBack) {
+                        app->screen = AccessAuditScreenReportViewer;
+                        view_port_update(app->view_port);
+                    }
+                }
+            }
+
+            /* Long-press handling */
+            if(event.type == AccessAuditEventTypeInput && event.input.type == InputTypeLong) {
+                if(app->screen == AccessAuditScreenReportViewer &&
+                   event.input.key == InputKeyBack) {
+                    app->screen = AccessAuditScreenDeleteConfirm;
                     view_port_update(app->view_port);
                 }
             }

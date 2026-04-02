@@ -23,7 +23,9 @@ bool rule_legacy_family(const AccessObservation* obs) {
 
 bool rule_identifier_only_pattern(const AccessObservation* obs) {
     if(!obs) return false;
-    return obs->uid_present && !obs->user_memory_present && obs->repeated_reads_identical;
+    /* Card presents a stable UID with no evidence of protected application memory.
+     * Any card in this state can be replayed by cloning the UID alone. */
+    return obs->uid_present && !obs->user_memory_present && obs->metadata_complete;
 }
 
 bool rule_uid_no_memory(const AccessObservation* obs) {

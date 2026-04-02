@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented here.
 
+## [1.2.0] — Code cleanup, delete report, full docs
+
+### Added
+- **Delete report from viewer** — hold Back in the report viewer to open a delete confirmation screen; OK deletes and returns to the report list, Back cancels
+- **docs/scoring.md** — full scoring formula with severity thresholds, confidence penalties, and worked examples for every common card type
+- **docs/card-types.md** — reference table for every `CardType` enum value: risk rating, common deployment, and recommended remediation
+- **docs/contributing.md** — step-by-step guide for adding a new card type or rule, including provider patterns and code style notes
+
+### Changed
+- `rule_identifier_only_pattern` — removed the `repeated_reads_identical` field that was never set by any provider; rule now fires on `uid_present && !user_memory_present && metadata_complete`, which correctly identifies all static-replay credential patterns
+- `AccessObservation` struct — removed the dead `repeated_reads_identical` field
+
+### Fixed
+- docs/rules.md — updated `identifier_only_pattern` signal conditions to match the implementation; added HID iCLASS Legacy family to `legacy_family` match list; corrected rule interaction examples table (scores now reflect `identifier_only_pattern` firing correctly)
+
 ## [1.1.0] — HID iCLASS support and bug fixes
 
 ### Added

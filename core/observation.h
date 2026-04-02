@@ -59,9 +59,8 @@ typedef struct {
     TechType tech;
     CardType card_type;
     bool uid_present;
-    bool user_memory_present;
-    bool repeated_reads_identical;
-    bool metadata_complete;
+    bool user_memory_present; /* true when authenticated/protected application memory confirmed */
+    bool metadata_complete;   /* false when classification could not read all expected fields */
     size_t uid_len;
     uint8_t uid[10];
 } AccessObservation;

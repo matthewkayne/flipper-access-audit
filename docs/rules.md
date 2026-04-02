@@ -14,6 +14,7 @@ Matches:
 - All 125 kHz RFID protocols (EM4100-like, HID Prox, HID Generic, Indala, generic 125 kHz) — no crypto at all
 - MIFARE Classic (1K, 4K, Mini) — Crypto1 cipher is practically broken
 - MIFARE Plus SL1 — Classic-compatibility mode; AES is not active
+- HID iCLASS Legacy (all memory variants: 2k, 16k, 32k) — DES/3DES, master key publicly known
 
 **Score contribution:** +35 · **Max severity:** HIGH
 
@@ -21,12 +22,14 @@ Matches:
 
 ### `identifier_only_pattern`
 
-Triggers when a stable UID is present with no evidence of protected user memory and repeated reads are identical. The card behaves as a static replay token — the UID alone is the credential.
+Triggers when a UID is present with no evidence of protected application memory, and classification metadata is complete. The card's security relies on the UID alone — it can be cloned without breaking any crypto.
 
 Signals:
 - `uid_present` = true
 - `user_memory_present` = false
-- `repeated_reads_identical` = true
+- `metadata_complete` = true
+
+Does not fire when `metadata_complete` is false — use `uid_no_memory` for incomplete observations.
 
 **Score contribution:** +35 · **Max severity:** HIGH
 
@@ -36,7 +39,12 @@ Signals:
 
 ### `uid_no_memory`
 
-Weaker form of `identifier_only_pattern`. A UID is present but no evidence of authenticated/protected memory has been observed. Does not fire when `identifier_only_pattern` already applies, or when the card has confirmed protected application memory (DESFire with apps, Plus SL2/SL3).
+Weaker form of `identifier_only_pattern`. A UID is present but no evidence of authenticated/protected memory has been observed, and metadata is incomplete so a confident conclusion cannot be drawn. Does not fire when `identifier_only_pattern` already applies.
+
+Signals:
+- `uid_present` = true
+- `user_memory_present` = false
+- `metadata_complete` = false (or `identifier_only_pattern` did not fire for another reason)
 
 **Score contribution:** +20 · **Max severity:** MEDIUM
 
@@ -46,9 +54,9 @@ Weaker form of `identifier_only_pattern`. A UID is present but no evidence of au
 
 ### `incomplete_evidence`
 
-Classification metadata is incomplete. The result should be treated with caution.
+Classification metadata is incomplete — the poller could not read all expected fields. The result should be treated with caution.
 
-**Score contribution:** +10 · **Confidence penalty:** −20
+**Score contribution:** +10 · **Confidence penalty:** −20%
 
 ---
 
@@ -56,7 +64,7 @@ Classification metadata is incomplete. The result should be treated with caution
 
 UID could not be extracted. The observation cannot be fully assessed.
 
-**Score contribution:** +10 · **Confidence penalty:** −15
+**Score contribution:** +10 · **Confidence penalty:** −15%
 
 ---
 
@@ -72,7 +80,11 @@ Matches:
 - MIFARE Plus SL3 — AES crypto + ISO14443-4 protocol
 - FeliCa — proprietary crypto
 
-**Score contribution:** −20 · **Severity effect:** HIGH → MEDIUM (when no legacy rule also fired); MEDIUM → SECURE when score reaches zero
+**Score contribution:** −20
+
+**Severity downgrade** (applies only when `legacy_family` did not also fire):
+- HIGH → MEDIUM
+- MEDIUM → SECURE when the resulting score reaches zero
 
 ---
 
@@ -91,11 +103,23 @@ Matches:
 
 | Card | Rules fired | Score | Label |
 |---|---|---|---|
-| EM4100 | legacy_family, uid_no_memory | 55 | HIGH RISK |
-| MIFARE Classic 1K | legacy_family, uid_no_memory | 55 | HIGH RISK |
-| MIFARE Plus SL1 | legacy_family, uid_no_memory | 55 | HIGH RISK |
-| MIFARE Plus SL2 | uid_no_memory, modern_crypto | 0 | SECURE |
+| EM4100 | legacy_family, identifier_only_pattern | 70 | HIGH RISK |
+| MIFARE Classic 1K | legacy_family, identifier_only_pattern | 70 | HIGH RISK |
+| MIFARE Plus SL1 | legacy_family, identifier_only_pattern | 70 | HIGH RISK |
+| HID iCLASS Legacy 2k | legacy_family, identifier_only_pattern | 70 | HIGH RISK |
+| MIFARE Plus SL2 | identifier_only_pattern, modern_crypto | 15 | MODERATE |
 | MIFARE Plus SL3 | modern_crypto | 0 | SECURE |
-| DESFire EV1/EV2/EV3 | modern_crypto | 0 | SECURE |
-| NTAG213 | uid_no_memory | 20 | MODERATE |
+| DESFire EV2/EV3 | modern_crypto | 0 | SECURE |
+| DESFire EV1 | modern_crypto | 0 | SECURE |
+| NTAG213 | identifier_only_pattern | 35 | HIGH RISK |
 | Unknown card | incomplete_evidence, no_uid | 20 | MODERATE |
+
+> **Note on the examples table:** scores shown assume `metadata_complete=true`. If the poller returned incomplete metadata, `incomplete_evidence` fires (+10, −20% confidence) and `identifier_only_pattern` is replaced by `uid_no_memory` (+20) since `metadata_complete=false`.
+
+---
+
+## Implementation reference
+
+- Rule functions: [core/rules.c](../core/rules.c)
+- Score calculator: [core/scoring.c](../core/scoring.c)
+- Scoring details and further examples: [docs/scoring.md](scoring.md)

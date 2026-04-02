@@ -43,3 +43,9 @@ bool report_load(const char* name, ReportContent* out);
 
 /** Free all heap memory owned by a ReportContent. */
 void report_content_free(ReportContent* content);
+
+/**
+ * Delete a report file by its basename ("YYYYMMDD_HHMMSS").
+ * Returns true if the file was removed successfully.
+ */
+bool report_delete(const char* name);

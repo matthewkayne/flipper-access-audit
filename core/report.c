@@ -452,3 +452,16 @@ void report_content_free(ReportContent* content) {
     content->buf = NULL;
     content->count = 0;
 }
+
+bool report_delete(const char* name) {
+    if(!name) return false;
+
+    char path[72];
+    snprintf(path, sizeof(path), REPORT_DIR "/report_%s.txt", name);
+
+    Storage* storage = furi_record_open(RECORD_STORAGE);
+    FS_Error err = storage_common_remove(storage, path);
+    furi_record_close(RECORD_STORAGE);
+
+    return err == FSE_OK;
+}
