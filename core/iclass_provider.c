@@ -15,7 +15,9 @@
  */
 #define ICLASS_CMD_ACTALL    0x0A  /* SOF-only response (IncompleteFrame expected) */
 #define ICLASS_CMD_IDENTIFY  0x0C  /* Response: CSN(8) + iCLASS CRC16(2) */
+#define ICLASS_CMD_SELECT    0x83  /* Select by CSN; response: config(8) + CRC16(2) */
 #define ICLASS_CSN_LEN       8
+#define ICLASS_CFG_LEN       8    /* SELECT response payload length */
 #define ICLASS_POLLER_FWT_FC 100000 /* Frame wait time in FC units (~7.4 ms) */
 #define ICLASS_BUF_SIZE      32
 
@@ -82,19 +84,34 @@ static NfcCommand iclass_poller_cb(NfcGenericEvent event, void* context) {
     }
     iso13239_crc_trim(p->rx_buf);
 
-    /* ── Determine card type from CSN book byte (CSN[7] lower nibble) ──
-     * The book byte encodes the iCLASS memory configuration:
-     *   lower nibble 0x2 = 2k (most common HID iCLASS card)
-     *   lower nibble 0x9 or 0xA = 16k
-     *   lower nibble 0xB = 32k */
-    uint8_t book = bit_buffer_get_byte(p->rx_buf, 7);
-    CardType card_type;
-    switch(book & 0x0F) {
-    case 0x2: card_type = CardTypeHidIclassLegacy2k;  break;
-    case 0x9:
-    case 0xA: card_type = CardTypeHidIclassLegacy16k; break;
-    case 0xB: card_type = CardTypeHidIclassLegacy32k; break;
-    default:  card_type = CardTypeHidIclassLegacy;    break;
+    /* CSN is now in rx_buf (8 bytes).  Save it before we reuse the buffer. */
+    uint8_t csn[ICLASS_CSN_LEN];
+    bit_buffer_write_bytes(p->rx_buf, csn, ICLASS_CSN_LEN);
+
+    /* ── Step 3: SELECT ──
+     * SELECT returns an 8-byte configuration block.  Byte 5 is the chip-config
+     * byte; its lower 5 bits encode the memory variant:
+     *   0x00 = 2k   0x06 = 16k   0x17 = 32k
+     * Fall back to the generic Legacy type if SELECT fails or is unrecognised. */
+    bit_buffer_reset(p->tx_buf);
+    bit_buffer_append_byte(p->tx_buf, ICLASS_CMD_SELECT);
+    bit_buffer_append_bytes(p->tx_buf, csn, ICLASS_CSN_LEN);
+    iso13239_crc_append(Iso13239CrcTypePicopass, p->tx_buf);
+
+    err = nfc_poller_trx(p->nfc, p->tx_buf, p->rx_buf, ICLASS_POLLER_FWT_FC);
+
+    CardType card_type = CardTypeHidIclassLegacy;
+    if(err == NfcErrorNone &&
+       bit_buffer_get_size_bytes(p->rx_buf) == ICLASS_CFG_LEN + 2 &&
+       iso13239_crc_check(Iso13239CrcTypePicopass, p->rx_buf)) {
+        iso13239_crc_trim(p->rx_buf);
+        uint8_t chip_cfg = bit_buffer_get_byte(p->rx_buf, 5);
+        switch(chip_cfg & 0x1F) {
+        case 0x00: card_type = CardTypeHidIclassLegacy2k;  break;
+        case 0x06: card_type = CardTypeHidIclassLegacy16k; break;
+        case 0x17: card_type = CardTypeHidIclassLegacy32k; break;
+        default:   card_type = CardTypeHidIclassLegacy;    break;
+        }
     }
 
     /* ── Build observation ── */
@@ -106,7 +123,7 @@ static NfcCommand iclass_poller_cb(NfcGenericEvent event, void* context) {
     p->pending.metadata_complete = true;
     p->pending.uid_present = true;
     p->pending.uid_len = ICLASS_CSN_LEN;
-    bit_buffer_write_bytes(p->rx_buf, p->pending.uid, ICLASS_CSN_LEN);
+    memcpy(p->pending.uid, csn, ICLASS_CSN_LEN);
     p->done = true;
 
     furi_mutex_release(p->mutex);
