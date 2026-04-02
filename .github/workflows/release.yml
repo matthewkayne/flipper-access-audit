@@ -47,9 +47,14 @@ jobs:
           app-dir: .
           sdk-channel: release
 
+      - name: Generate checksum
+        run: sha256sum dist/access_audit.fap > dist/access_audit.fap.sha256
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/access_audit.fap
+          files: |
+            dist/access_audit.fap
+            dist/access_audit.fap.sha256
           generate_release_notes: true
           fail_on_unmatched_files: true
