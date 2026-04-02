@@ -410,12 +410,16 @@ int32_t access_audit_app(void* p) {
                 if(app->screen == AccessAuditScreenScan) {
                     if(event.input.key == InputKeyBack) {
                         running = false;
-                    } else if(
-                        event.input.key == InputKeyLeft ||
-                        event.input.key == InputKeyRight) {
+                    } else if(event.input.key == InputKeyRight) {
                         access_audit_stop_scanning(app);
                         if(app->scan_mode == ScanModeNfc)         app->scan_mode = ScanModeRfid;
                         else if(app->scan_mode == ScanModeRfid)   app->scan_mode = ScanModeIclass;
+                        else                                       app->scan_mode = ScanModeNfc;
+                        access_audit_start_scanning(app);
+                    } else if(event.input.key == InputKeyLeft) {
+                        access_audit_stop_scanning(app);
+                        if(app->scan_mode == ScanModeNfc)         app->scan_mode = ScanModeIclass;
+                        else if(app->scan_mode == ScanModeIclass) app->scan_mode = ScanModeRfid;
                         else                                       app->scan_mode = ScanModeNfc;
                         access_audit_start_scanning(app);
                         view_port_update(app->view_port);
