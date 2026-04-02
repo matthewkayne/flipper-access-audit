@@ -82,12 +82,27 @@ static NfcCommand iclass_poller_cb(NfcGenericEvent event, void* context) {
     }
     iso13239_crc_trim(p->rx_buf);
 
+    /* ── Determine card type from CSN book byte (CSN[7] lower nibble) ──
+     * The book byte encodes the iCLASS memory configuration:
+     *   lower nibble 0x2 = 2k (most common HID iCLASS card)
+     *   lower nibble 0x9 or 0xA = 16k
+     *   lower nibble 0xB = 32k */
+    uint8_t book = bit_buffer_get_byte(p->rx_buf, 7);
+    CardType card_type;
+    switch(book & 0x0F) {
+    case 0x2: card_type = CardTypeHidIclassLegacy2k;  break;
+    case 0x9:
+    case 0xA: card_type = CardTypeHidIclassLegacy16k; break;
+    case 0xB: card_type = CardTypeHidIclassLegacy32k; break;
+    default:  card_type = CardTypeHidIclassLegacy;    break;
+    }
+
     /* ── Build observation ── */
     furi_mutex_acquire(p->mutex, FuriWaitForever);
 
     p->pending = (AccessObservation){0};
     p->pending.tech = TechTypeNfc13Mhz;
-    p->pending.card_type = CardTypeHidIclassLegacy;
+    p->pending.card_type = card_type;
     p->pending.metadata_complete = true;
     p->pending.uid_present = true;
     p->pending.uid_len = ICLASS_CSN_LEN;

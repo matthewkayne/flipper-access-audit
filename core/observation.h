@@ -45,8 +45,11 @@ typedef enum {
     CardTypeIso14443A,
     CardTypeIso14443B,
     CardTypeIso15693,
-    CardTypeHidIclass,        /* TI ISO15693 card — potential iCLASS, unconfirmed */
-    CardTypeHidIclassLegacy,  /* iCLASS confirmed via ACTALL/IDENTIFY: original DES/3DES */
+    CardTypeHidIclass,          /* TI ISO15693 card — potential iCLASS, unconfirmed */
+    CardTypeHidIclassLegacy,    /* iCLASS confirmed via ACTALL/IDENTIFY: DES/3DES, memory unknown */
+    CardTypeHidIclassLegacy2k,  /* iCLASS DES/3DES, 2 kilobit memory (most common) */
+    CardTypeHidIclassLegacy16k, /* iCLASS DES/3DES, 16 kilobit memory */
+    CardTypeHidIclassLegacy32k, /* iCLASS DES/3DES, 32 kilobit memory */
     CardTypeFelica,
     CardTypeSlix,
     CardTypeSt25tb,

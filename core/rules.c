@@ -15,6 +15,9 @@ bool rule_legacy_family(const AccessObservation* obs) {
     /* HID iCLASS — DES/3DES crypto, master key attack is well-documented */
     if(obs->card_type == CardTypeHidIclass) return true;
     if(obs->card_type == CardTypeHidIclassLegacy) return true;
+    if(obs->card_type == CardTypeHidIclassLegacy2k) return true;
+    if(obs->card_type == CardTypeHidIclassLegacy16k) return true;
+    if(obs->card_type == CardTypeHidIclassLegacy32k) return true;
     return false;
 }
 
