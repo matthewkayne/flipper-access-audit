@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## [1.3.0] — Card count on scan screen, SAK/ATQA in reports, CI version check
+
+### Added
+- **Card count badge on scan screen** — `[N]` counter appears top-right once the first card in a session is scanned, matching the result screen badge
+- **SAK/ATQA in reports** — ISO14443-3A SAK and ATQA bytes are now captured and written to every report entry as `ATQA: XX XX  SAK: XX`; particularly useful when the card falls through to the generic `ISO14443-A` type
+- **Version consistency CI check** — `release.yml` now asserts that `fap_version` in `application.fam` matches the git tag's MAJOR.MINOR before building; mismatches fail the release job immediately
+
+### Fixed
+- RFID cards (`identifier_only_pattern`) — `metadata_complete` was already set correctly in the RFID provider; combined with the v1.2.0 rule fix, EM4100/HID/Indala cards now correctly score HIGH RISK 70/100
+
 ## [1.2.0] — Code cleanup, delete report, full docs
 
 ### Added

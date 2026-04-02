@@ -6,7 +6,7 @@ App(
     sources=["*.c"],
     requires=["gui", "nfc", "storage"],
     stack_size=2 * 1024,
-    fap_version=(1, 2),
+    fap_version=(1, 3),
     fap_icon="icon.png",
     fap_category="Tools",
     fap_author="matthewkayne",

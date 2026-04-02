@@ -315,11 +315,17 @@ static NfcCommand iso14443_3a_poller_cb(NfcGenericEvent event, void* context) {
             size_t uid_len = 0;
             const uint8_t* uid = iso14443_3a_get_uid(data, &uid_len);
             uint8_t sak = iso14443_3a_get_sak(data);
+            uint8_t atqa[2];
+            iso14443_3a_get_atqa(data, atqa);
 
             p->pending = (AccessObservation){0};
             p->pending.tech = TechTypeNfc13Mhz;
             p->pending.card_type = classic_subtype_from_sak(sak, p->detected_card_type);
             p->pending.metadata_complete = true;
+            p->pending.sak_atqa_present = true;
+            p->pending.sak = sak;
+            p->pending.atqa[0] = atqa[0];
+            p->pending.atqa[1] = atqa[1];
 
             if(uid && uid_len > 0) {
                 p->pending.uid_present = true;

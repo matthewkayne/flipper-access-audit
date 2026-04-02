@@ -61,6 +61,9 @@ typedef struct {
     bool uid_present;
     bool user_memory_present; /* true when authenticated/protected application memory confirmed */
     bool metadata_complete;   /* false when classification could not read all expected fields */
+    bool sak_atqa_present;    /* true when SAK and ATQA were captured (ISO14443-3A only) */
     size_t uid_len;
     uint8_t uid[10];
+    uint8_t sak;              /* ISO14443-3A Select Acknowledge byte */
+    uint8_t atqa[2];          /* ISO14443-3A Answer To Request A */
 } AccessObservation;

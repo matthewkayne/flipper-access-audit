@@ -165,6 +165,11 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
             app->scan_mode == ScanModeNfc     ? "[NFC]" :
             app->scan_mode == ScanModeRfid    ? "[RFID]" :
                                                 "[iCLASS]");
+        if(app->session.count > 0) {
+            char cbuf[16];
+            snprintf(cbuf, sizeof(cbuf), "[%u]", (unsigned)app->session.count);
+            canvas_draw_str_aligned(canvas, 126, 24, AlignRight, AlignBottom, cbuf);
+        }
         canvas_draw_str(
             canvas,
             2,

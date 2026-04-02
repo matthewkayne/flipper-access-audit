@@ -173,6 +173,18 @@ static void write_card_entry(
         fw(f, "  UID:    unavailable\n");
     }
 
+    /* SAK / ATQA (ISO14443-3A only — useful for unclassified generic types) */
+    if(entry->obs.sak_atqa_present) {
+        snprintf(
+            buf,
+            sizeof(buf),
+            "  ATQA:   %02X %02X  SAK: %02X\n",
+            entry->obs.atqa[0],
+            entry->obs.atqa[1],
+            entry->obs.sak);
+        fw(f, buf);
+    }
+
     /* Manufacturer (NFC 7-byte UIDs only) */
     const char* mfr = nfc_manufacturer(&entry->obs);
     if(mfr) {
