@@ -9,6 +9,7 @@
 #include "core/report.h"
 #include "core/observation_provider.h"
 #include "core/rfid_provider.h"
+#include "core/picopass_provider.h"
 
 typedef enum {
     AccessAuditScreenScan,
@@ -22,6 +23,7 @@ typedef enum {
 typedef enum {
     ScanModeNfc,
     ScanModeRfid,
+    ScanModeIclass,
 } ScanMode;
 
 typedef struct {
@@ -29,6 +31,7 @@ typedef struct {
     FuriMessageQueue* event_queue;
     ObservationProvider* nfc_provider;
     RfidProvider* rfid_provider;
+    PicopassProvider* iclass_provider;
     ScanMode scan_mode;
     ScanSession session;
     AccessObservation obs;
@@ -65,13 +68,20 @@ static void access_audit_reset_to_scan(AccessAuditApp* app) {
 static void access_audit_start_scanning(AccessAuditApp* app) {
     if(app->scan_mode == ScanModeNfc) {
         observation_provider_start(app->nfc_provider);
-    } else {
-        /* Alloc RFID hardware on first use in this mode. */
+    } else if(app->scan_mode == ScanModeRfid) {
         if(!app->rfid_provider) {
             app->rfid_provider = rfid_provider_alloc();
         }
         if(app->rfid_provider) {
             rfid_provider_start(app->rfid_provider);
+        }
+    } else {
+        /* iCLASS — lazy alloc */
+        if(!app->iclass_provider) {
+            app->iclass_provider = picopass_provider_alloc();
+        }
+        if(app->iclass_provider) {
+            picopass_provider_start(app->iclass_provider);
         }
     }
 }
@@ -79,10 +89,12 @@ static void access_audit_start_scanning(AccessAuditApp* app) {
 static void access_audit_stop_scanning(AccessAuditApp* app) {
     if(app->scan_mode == ScanModeNfc) {
         observation_provider_stop(app->nfc_provider);
-    } else if(app->rfid_provider) {
-        /* Fully free RFID hardware so NFC can use the radio on next switch. */
+    } else if(app->scan_mode == ScanModeRfid && app->rfid_provider) {
         rfid_provider_free(app->rfid_provider);
         app->rfid_provider = NULL;
+    } else if(app->scan_mode == ScanModeIclass && app->iclass_provider) {
+        picopass_provider_free(app->iclass_provider);
+        app->iclass_provider = NULL;
     }
 }
 
@@ -147,15 +159,18 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
             10,
             AlignRight,
             AlignBottom,
-            app->scan_mode == ScanModeNfc ? "[NFC]" : "[RFID]");
+            app->scan_mode == ScanModeNfc     ? "[NFC]" :
+            app->scan_mode == ScanModeRfid    ? "[RFID]" :
+                                                "[iCLASS]");
         canvas_draw_str(
             canvas,
             2,
             26,
-            app->scan_mode == ScanModeNfc ? "Tap card to reader..." :
-                                            "Hold card to reader...");
+            app->scan_mode == ScanModeNfc     ? "Tap card to reader..." :
+            app->scan_mode == ScanModeIclass  ? "Tap iCLASS card..." :
+                                               "Hold card to reader...");
         canvas_draw_str(canvas, 2, 38, "Scanning...");
-        canvas_draw_str(canvas, 2, 50, "< > toggle NFC/RFID");
+        canvas_draw_str(canvas, 2, 50, "< > NFC/RFID/iCLASS");
         canvas_draw_str(canvas, 2, 62, "Up:reports  Back:exit");
         return;
     }
@@ -343,7 +358,8 @@ int32_t access_audit_app(void* p) {
         return -1;
     }
 
-    app->rfid_provider = NULL; /* allocated on demand when RFID mode is selected */
+    app->rfid_provider = NULL;    /* allocated on demand */
+    app->iclass_provider = NULL;  /* allocated on demand */
     app->scan_mode = ScanModeNfc;
     session_init(&app->session);
     access_audit_reset_to_scan(app);
@@ -373,11 +389,12 @@ int32_t access_audit_app(void* p) {
 
         if(app->screen == AccessAuditScreenScan) {
             AccessObservation candidate;
-            bool got = (app->scan_mode == ScanModeNfc) ?
-                           observation_provider_poll(app->nfc_provider, &candidate) :
-                           (app->rfid_provider ?
-                                rfid_provider_poll(app->rfid_provider, &candidate) :
-                                false);
+            bool got =
+                (app->scan_mode == ScanModeNfc) ?
+                    observation_provider_poll(app->nfc_provider, &candidate) :
+                (app->scan_mode == ScanModeRfid) ?
+                    (app->rfid_provider ? rfid_provider_poll(app->rfid_provider, &candidate) : false) :
+                    (app->iclass_provider ? picopass_provider_poll(app->iclass_provider, &candidate) : false);
             if(got) {
                 app->obs = candidate;
                 app->score = score_observation(&app->obs);
@@ -396,8 +413,9 @@ int32_t access_audit_app(void* p) {
                         event.input.key == InputKeyLeft ||
                         event.input.key == InputKeyRight) {
                         access_audit_stop_scanning(app);
-                        app->scan_mode =
-                            (app->scan_mode == ScanModeNfc) ? ScanModeRfid : ScanModeNfc;
+                        if(app->scan_mode == ScanModeNfc)         app->scan_mode = ScanModeRfid;
+                        else if(app->scan_mode == ScanModeRfid)   app->scan_mode = ScanModeIclass;
+                        else                                       app->scan_mode = ScanModeNfc;
                         access_audit_start_scanning(app);
                         view_port_update(app->view_port);
                     } else if(event.input.key == InputKeyUp) {
@@ -554,6 +572,7 @@ int32_t access_audit_app(void* p) {
 
     report_content_free(&app->rviewer);
     rfid_provider_free(app->rfid_provider);
+    picopass_provider_free(app->iclass_provider);
     observation_provider_free(app->nfc_provider);
 
     view_port_enabled_set(app->view_port, false);
