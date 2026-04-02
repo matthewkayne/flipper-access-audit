@@ -124,6 +124,8 @@ static const char* report_advice(CardType type) {
         return "iCLASS DES/3DES master key is publicly known. Upgrade to iCLASS SE/Seos.";
     case CardTypeFelica:
         return "Verify FeliCa application crypto is properly configured.";
+    case CardTypeFeliCaLite:
+        return "FeliCa Lite has no mutual auth. Avoid for access control; use standard FeliCa or DESFire EV2+.";
     default:
         return NULL;
     }
@@ -463,6 +465,51 @@ void report_content_free(ReportContent* content) {
     content->lines = NULL;
     content->buf = NULL;
     content->count = 0;
+}
+
+ReportSummary report_read_summary(const char* name) {
+    ReportSummary sum = {0};
+    if(!name) return sum;
+
+    char path[72];
+    snprintf(path, sizeof(path), REPORT_DIR "/report_%s.txt", name);
+
+    Storage* storage = furi_record_open(RECORD_STORAGE);
+    File* file = storage_file_alloc(storage);
+
+    if(storage_file_open(file, path, FSAM_READ, FSOM_OPEN_EXISTING)) {
+        /* Read up to 512 bytes — the summary line always appears in the header */
+        char buf[512];
+        size_t read = storage_file_read(file, buf, sizeof(buf) - 1);
+        buf[read] = '\0';
+        storage_file_close(file);
+
+        /* Scan line by line for "High: N  Medium: N  Low: N  Secure: N" */
+        char* line = buf;
+        for(int l = 0; l < 20 && line && *line; l++) {
+            char* newline = strchr(line, '\n');
+            if(newline) *newline = '\0';
+
+            unsigned h = 0, m = 0, lo = 0, s = 0;
+            if(sscanf(line, "High: %u  Medium: %u  Low: %u  Secure: %u",
+                      &h, &m, &lo, &s) == 4) {
+                sum.high   = (uint8_t)(h  > 255 ? 255 : h);
+                sum.medium = (uint8_t)(m  > 255 ? 255 : m);
+                sum.low    = (uint8_t)(lo > 255 ? 255 : lo);
+                sum.secure = (uint8_t)(s  > 255 ? 255 : s);
+                sum.valid  = true;
+                break;
+            }
+
+            line = newline ? newline + 1 : NULL;
+        }
+    } else {
+        storage_file_close(file);
+    }
+
+    storage_file_free(file);
+    furi_record_close(RECORD_STORAGE);
+    return sum;
 }
 
 bool report_delete(const char* name) {

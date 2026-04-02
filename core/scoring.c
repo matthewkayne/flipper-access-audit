@@ -167,6 +167,8 @@ const char* card_type_to_string(CardType type) {
         return "HID iCLASS 32k (Legacy)";
     case CardTypeFelica:
         return "FeliCa";
+    case CardTypeFeliCaLite:
+        return "FeliCa Lite";
     case CardTypeSlix:
         return "SLIX";
     case CardTypeSt25tb:

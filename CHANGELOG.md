@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## [1.4.0] — FeliCa sub-type detection, risk summary in report list
+
+### Added
+- **FeliCa sub-type detection** — FeliCa Lite is now detected and classified separately from standard FeliCa; Lite has no mutual authentication and scores HIGH RISK with advice to avoid it for access control. Standard FeliCa retains SECURE scoring. Previously all FeliCa cards fell through to an unread state (no poller callback existed)
+- **Risk summary in report list** — each row now shows `H:N M:N` (high and medium counts) right-aligned alongside the formatted date/time, so you can identify the most critical reports at a glance without opening them
+
+### Fixed
+- FeliCa cards now scan and classify correctly — `callback_for_protocol` previously had no FeliCa case, causing the scanner to restart instead of reading the card
+
 ## [1.3.0] — Card count on scan screen, SAK/ATQA in reports, CI version check
 
 ### Added

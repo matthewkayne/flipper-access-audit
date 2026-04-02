@@ -58,7 +58,7 @@ bool rule_modern_crypto(const AccessObservation* obs) {
     case CardTypeMifarePlus:
     case CardTypeMifarePlusSL2:
     case CardTypeMifarePlusSL3:
-    /* FeliCa uses proprietary crypto */
+    /* FeliCa Standard uses proprietary crypto — Lite does not */
     case CardTypeFelica:
         return true;
     default:

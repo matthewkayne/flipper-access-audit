@@ -13,6 +13,8 @@
 #include <nfc/protocols/mf_plus/mf_plus_poller.h>
 #include <nfc/protocols/iso15693_3/iso15693_3.h>
 #include <nfc/protocols/iso15693_3/iso15693_3_poller.h>
+#include <nfc/protocols/felica/felica.h>
+#include <nfc/protocols/felica/felica_poller.h>
 
 #include "observation_provider.h"
 
@@ -577,6 +579,71 @@ static NfcCommand iso15693_3_poller_cb(NfcGenericEvent event, void* context) {
 }
 
 /* -------------------------------------------------------------------------
+ * FeliCa poller callback  (runs on NFC worker thread)
+ *
+ * FelicaPollerEventTypeReady   — full read complete; workflow_type set.
+ * FelicaPollerEventTypeIncomplete — activated but not fully read;
+ *                                   UID is still available.
+ *
+ * FelicaWorkflowType:
+ *   FelicaLite     — no mutual authentication, used in transit/building
+ *                    access where the UID or a static value is the credential
+ *   FelicaStandard — proprietary crypto; security depends on configuration
+ *   FelicaUnknown  — workflow could not be determined
+ * -------------------------------------------------------------------------
+ */
+
+static NfcCommand felica_poller_cb(NfcGenericEvent event, void* context) {
+    ObservationProvider* p = context;
+    FelicaPollerEvent* fc_event = (FelicaPollerEvent*)event.event_data;
+
+    if(fc_event->type != FelicaPollerEventTypeReady &&
+       fc_event->type != FelicaPollerEventTypeIncomplete) {
+        /* Error — restart scanner */
+        furi_mutex_acquire(p->mutex, FuriWaitForever);
+        p->state = ProviderStateReadFailed;
+        furi_mutex_release(p->mutex);
+        return NfcCommandStop;
+    }
+
+    furi_mutex_acquire(p->mutex, FuriWaitForever);
+
+    const FelicaData* fc_data = (const FelicaData*)nfc_poller_get_data(p->poller);
+
+    if(fc_data) {
+        size_t uid_len = 0;
+        const uint8_t* uid = felica_get_uid(fc_data, &uid_len);
+
+        p->pending = (AccessObservation){0};
+        p->pending.tech = TechTypeNfc13Mhz;
+        p->pending.metadata_complete = (fc_event->type == FelicaPollerEventTypeReady);
+
+        /* Classify by workflow type */
+        if(fc_data->workflow_type == FelicaLite) {
+            p->pending.card_type = CardTypeFeliCaLite;
+        } else {
+            p->pending.card_type = CardTypeFelica;
+        }
+
+        if(uid && uid_len > 0) {
+            p->pending.uid_present = true;
+            p->pending.uid_len =
+                uid_len <= sizeof(p->pending.uid) ? uid_len : sizeof(p->pending.uid);
+            for(size_t i = 0; i < p->pending.uid_len; i++) {
+                p->pending.uid[i] = uid[i];
+            }
+        }
+
+        p->state = ProviderStateDone;
+    } else {
+        p->state = ProviderStateReadFailed;
+    }
+
+    furi_mutex_release(p->mutex);
+    return NfcCommandStop;
+}
+
+/* -------------------------------------------------------------------------
  * Internal helpers (main thread only — no races with each other)
  * -------------------------------------------------------------------------
  */
@@ -608,6 +675,8 @@ static NfcGenericCallback callback_for_protocol(NfcProtocol protocol) {
         return iso14443_3a_poller_cb;
     case NfcProtocolIso15693_3:
         return iso15693_3_poller_cb;
+    case NfcProtocolFelica:
+        return felica_poller_cb;
     default:
         return NULL;
     }

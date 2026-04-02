@@ -44,6 +44,7 @@ typedef struct {
     uint8_t kb_col;  /* keyboard cursor column */
     /* Report list */
     char rlist_names[REPORT_LIST_MAX][REPORT_NAME_LEN];
+    ReportSummary rlist_summaries[REPORT_LIST_MAX];
     size_t rlist_count;
     size_t rlist_top;    /* index of first visible row */
     size_t rlist_cursor; /* index of selected row */
@@ -228,7 +229,34 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
                     canvas_draw_box(canvas, 0, y - 9, 128, 11);
                     canvas_set_color(canvas, ColorWhite);
                 }
-                canvas_draw_str(canvas, 2, y, app->rlist_names[idx]);
+                /* Format name "YYYYMMDD_HHMMSS" → "YYYYMMDD HH:MM" */
+                const char* n = app->rlist_names[idx];
+                char date_str[16];
+                if(strlen(n) >= 15) {
+                    snprintf(
+                        date_str,
+                        sizeof(date_str),
+                        "%.8s %.2s:%.2s",
+                        n,       /* YYYYMMDD */
+                        n + 9,   /* HH */
+                        n + 11); /* MM */
+                } else {
+                    snprintf(date_str, sizeof(date_str), "%s", n);
+                }
+                canvas_draw_str(canvas, 2, y, date_str);
+
+                /* Risk summary right-aligned if available */
+                const ReportSummary* s = &app->rlist_summaries[idx];
+                if(s->valid) {
+                    char sum_str[16];
+                    snprintf(
+                        sum_str,
+                        sizeof(sum_str),
+                        "H:%u M:%u",
+                        (unsigned)s->high,
+                        (unsigned)s->medium);
+                    canvas_draw_str_aligned(canvas, 126, y, AlignRight, AlignBottom, sum_str);
+                }
                 canvas_set_color(canvas, ColorBlack);
             }
         }
@@ -452,6 +480,9 @@ int32_t access_audit_app(void* p) {
                     } else if(event.input.key == InputKeyUp) {
                         access_audit_stop_scanning(app);
                         app->rlist_count = report_list(app->rlist_names);
+                        for(size_t ri = 0; ri < app->rlist_count; ri++)
+                            app->rlist_summaries[ri] =
+                                report_read_summary(app->rlist_names[ri]);
                         app->rlist_top = 0;
                         app->rlist_cursor = 0;
                         app->screen = AccessAuditScreenReportList;
@@ -604,6 +635,9 @@ int32_t access_audit_app(void* p) {
                         report_content_free(&app->rviewer);
                         report_delete(app->rlist_names[app->rlist_cursor]);
                         app->rlist_count = report_list(app->rlist_names);
+                        for(size_t ri = 0; ri < app->rlist_count; ri++)
+                            app->rlist_summaries[ri] =
+                                report_read_summary(app->rlist_names[ri]);
                         app->rlist_top = 0;
                         app->rlist_cursor = 0;
                         app->screen = AccessAuditScreenReportList;

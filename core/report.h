@@ -26,6 +26,22 @@ bool report_save_session(const ScanSession* session);
  */
 size_t report_list(char names[REPORT_LIST_MAX][REPORT_NAME_LEN]);
 
+/** Risk counts extracted from a saved report header. */
+typedef struct {
+    uint8_t high;
+    uint8_t medium;
+    uint8_t low;
+    uint8_t secure;
+    bool valid; /* false if the summary line could not be parsed */
+} ReportSummary;
+
+/**
+ * Read only the summary counts from a report by its basename.
+ * Scans the first 20 lines for the "High: N  Medium: N ..." line.
+ * Returns a ReportSummary; check .valid before using the counts.
+ */
+ReportSummary report_read_summary(const char* name);
+
 /**
  * Loaded report content — heap-allocated, free with report_content_free().
  */
