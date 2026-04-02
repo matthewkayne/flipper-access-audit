@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented here.
 
+## [1.1.0] — HID iCLASS support and bug fixes
+
+### Added
+- **HID iCLASS scanning** — proprietary ACTALL → IDENTIFY → SELECT → READ block 1 exchange over ISO15693 RF; detects and scores iCLASS DES/3DES legacy cards (HIGH RISK) with advice to upgrade to iCLASS SE/Seos
+- **iCLASS memory variant classification** — reads configuration block to distinguish 2k, 16k, and 32k variants where block 1 is accessible; falls back to generic "HID iCLASS (Legacy)" gracefully when block is protected
+- **Three-way scan mode** — Left/Right on scan screen now cycles NFC → RFID → iCLASS → NFC
+
+### Fixed
+- Left arrow now cycles scan mode in reverse; previously both arrows cycled in the same direction
+- Consecutive iCLASS rescans now work correctly — a stale-poller slot prevents the poller appearing still-running after it completes
+- Report directory (`/ext/apps_data/access_audit`) now created recursively on first save; previously silent failures on SD cards where the parent directory did not yet exist
+- Report list now reads all reports before sorting, so the newest reports always appear first; previously capped at 20 before sort, which hid newer files when more than 20 existed
+- Post-save confirmation screen now returns to scan mode instead of exiting the app
+- Save result correctly captured when saving without a session name via the Back button
+
 ## [1.0.0] — First stable release
 
 - Full NFC 13.56 MHz and RFID 125 kHz support with hardware-safe toggling

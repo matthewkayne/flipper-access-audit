@@ -10,14 +10,14 @@ Tap a card, get an instant risk score and plain-English advice. Save a named ses
 
 ## Features
 
-- **Deep card classification** — MIFARE Classic 1K/4K/Mini, DESFire EV1/EV2/EV3/Light, MIFARE Plus SL1/SL2/SL3, Ultralight C, NTAG203/213/215/216, NTAG I2C, ISO14443-A/B, ISO15693, FeliCa, SLIX, ST25TB; 125 kHz RFID: EM4100, HID H10301, HID Generic, Indala, and more
+- **Deep card classification** — MIFARE Classic 1K/4K/Mini, DESFire EV1/EV2/EV3/Light, MIFARE Plus SL1/SL2/SL3, Ultralight C, NTAG203/213/215/216, NTAG I2C, ISO14443-A/B, ISO15693, FeliCa, SLIX, ST25TB; 125 kHz RFID: EM4100, HID H10301, HID Generic, Indala; HID iCLASS (Legacy) 2k/16k/32k
 - **Instant risk score** — 0–100 score with HIGH RISK / MODERATE / LOW RISK / SECURE label
 - **Per-card advice** — plain-English recommendation written to every report entry
 - **Multi-scan sessions** — scan up to 20 cards per session with a live counter
 - **Named sessions** — optionally label a session before saving using an on-screen QWERTY keyboard
 - **SD card reports** — timestamped `.txt` report saved to `/ext/apps_data/access_audit/` with per-card advice and session-level advisory
 - **On-device report viewer** — browse and scroll saved reports without leaving the app
-- **NFC + RFID** — Left/Right toggles between 13.56 MHz NFC and 125 kHz RFID scanning
+- **NFC + RFID + iCLASS** — Left/Right cycles between 13.56 MHz NFC, 125 kHz RFID, and HID iCLASS scanning
 
 ---
 
@@ -44,7 +44,7 @@ ufbt
 
 | Screen | Controls |
 |---|---|
-| Scan | Tap/hold card · **Left/Right** toggle NFC↔RFID · **Up** view reports · **Back** exit |
+| Scan | Tap/hold card · **Left/Right** cycle NFC → RFID → iCLASS · **Up** view reports · **Back** exit |
 | Result | **OK** rescan · **Back** save session and proceed to naming |
 | Name session | QWERTY keyboard · **OK key** save with name · **Back** skip naming / backspace |
 | Reports list | **Up/Down** scroll · **OK** open · **Back** return to scan |
@@ -54,7 +54,7 @@ ufbt
 
 | Label | Score | Meaning |
 |---|---|---|
-| HIGH RISK | 35–100 | Legacy family (MIFARE Classic, EM4100, Plus SL1) or static-replay pattern |
+| HIGH RISK | 35–100 | Legacy family (MIFARE Classic, EM4100, HID iCLASS, Plus SL1) or static-replay pattern |
 | MODERATE | 20–34 | Risk indicators present — review recommended |
 | LOW RISK | 10–19 | Minor concerns, e.g. incomplete metadata |
 | SECURE | 0–9 | Modern crypto family with no major findings |
@@ -67,6 +67,7 @@ ufbt
 | MIFARE DESFire | EV1 · EV2 · EV3 · Light (via GetVersion) |
 | MIFARE Plus | SL1 · SL2 · SL3 (via security level response) |
 | MIFARE Ultralight / NTAG | Ultralight C · NTAG203/213/215/216 · NTAG I2C |
+| HID iCLASS | Legacy 2k · Legacy 16k · Legacy 32k (via ACTALL/IDENTIFY/READ block 1) |
 | 125 kHz RFID | EM4100 · HID H10301 · HID Generic · Indala · generic 125 kHz |
 
 ---
@@ -76,9 +77,10 @@ ufbt
 1. The NFC scanner detects which protocols the card supports.
 2. The richest available poller is started (DESFire → Plus → Ultralight → ISO14443-3a).
 3. The poller reads the UID and card-specific metadata without authentication — no sectors are unlocked, no data is modified.
-4. The observation is scored against six named rules (see [docs/rules.md](docs/rules.md)).
-5. Results are displayed on screen and appended to the session buffer.
-6. On save, the session is written as a `.txt` report with per-card advice and a session-level advisory.
+4. For HID iCLASS, a proprietary ACTALL → IDENTIFY → SELECT → READ block 1 exchange runs over the ISO15693 RF channel to obtain the CSN and memory variant.
+5. The observation is scored against six named rules (see [docs/rules.md](docs/rules.md)).
+6. Results are displayed on screen and appended to the session buffer.
+7. On save, the session is written as a `.txt` report with per-card advice and a session-level advisory.
 
 ---
 
@@ -93,6 +95,7 @@ core/
   observation.h           — data model (TechType, CardType, AccessObservation)
   observation_provider.c  — NFC scan pipeline (scanner + poller state machine)
   rfid_provider.c         — RFID 125 kHz scan pipeline (LFRFIDWorker)
+  iclass_provider.c       — HID iCLASS scan pipeline (ISO15693 poller + proprietary exchange)
   rules.c                 — named audit rules
   scoring.c               — score calculator + card-type strings
   session.c               — multi-scan session buffer
@@ -118,7 +121,8 @@ access_audit.c            — app loop, screens, input handling
 - [x] MIFARE Plus SL1/SL2/SL3 detection (via security level)
 - [x] Per-card advice and session-level advisory in reports
 - [x] v1.0.0 stable release
-- [ ] Flipper App Catalog submission
+- [x] HID iCLASS scanning with memory variant detection
+- [x] Flipper App Catalog submission
 
 ---
 
