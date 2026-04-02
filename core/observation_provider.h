@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <nfc/nfc.h>
 #include "observation.h"
 
 /**
