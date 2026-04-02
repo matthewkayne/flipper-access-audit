@@ -253,9 +253,9 @@ bool report_save_session(const ScanSession* session) {
         dt.second);
 
     File* file = storage_file_alloc(storage);
-    bool ok = storage_file_open(file, path, FSAM_WRITE, FSOM_CREATE_ALWAYS);
+    bool open_ok = storage_file_open(file, path, FSAM_WRITE, FSOM_CREATE_ALWAYS);
 
-    if(ok) {
+    if(open_ok) {
         char buf[64];
         SessionSummary sum = session_summarise(session);
 
@@ -328,9 +328,13 @@ bool report_save_session(const ScanSession* session) {
             }
             fw(file, "========================================\n");
         }
-
-        storage_file_close(file);
     }
+
+    /* storage_file_close MUST be called even when open failed (SDK requirement).
+     * Its return value indicates whether data was fully flushed to the SD card —
+     * this is the authoritative success signal, not storage_file_open. */
+    bool close_ok = storage_file_close(file);
+    bool ok = open_ok && close_ok;
 
     storage_file_free(file);
     furi_record_close(RECORD_STORAGE);
