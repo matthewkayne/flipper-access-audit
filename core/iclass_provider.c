@@ -2,50 +2,64 @@
 
 #include <furi.h>
 #include <nfc/nfc.h>
+#include <nfc/nfc_poller.h>
+#include <nfc/protocols/iso15693_3/iso15693_3_poller.h>
 #include <toolbox/bit_buffer.h>
 #include <nfc/helpers/iso13239_crc.h>
 #include <string.h>
 #include <stdlib.h>
 
 /* -------------------------------------------------------------------------
- * iCLASS command bytes (HID iCLASS proprietary protocol over ISO15693)
+ * iCLASS command bytes (HID iCLASS proprietary protocol over ISO15693 RF)
  * -------------------------------------------------------------------------
  */
-#define ICLASS_CMD_ACTALL    0x0A  /* No args → SOF only (IncompleteFrame is OK) */
-#define ICLASS_CMD_IDENTIFY  0x0C  /* No args → CSN(8) + CRC16(2) */
+#define ICLASS_CMD_ACTALL    0x0A  /* SOF-only response (IncompleteFrame expected) */
+#define ICLASS_CMD_IDENTIFY  0x0C  /* Response: CSN(8) + iCLASS CRC16(2) */
 #define ICLASS_CSN_LEN       8
-#define ICLASS_POLLER_FWT_FC 100000 /* Frame wait time in FC units */
+#define ICLASS_POLLER_FWT_FC 100000 /* Frame wait time in FC units (~7.4 ms) */
 #define ICLASS_BUF_SIZE      32
 
 struct IclassProvider {
-    Nfc*       nfc;         /* borrowed — not owned */
+    Nfc*       nfc;     /* borrowed — not owned */
+    NfcPoller* poller;  /* owned ISO15693_3 poller, NULL when stopped */
     BitBuffer* tx_buf;
     BitBuffer* rx_buf;
     FuriMutex* mutex;
-    bool       nfc_started; /* true only between nfc_start() and nfc_stop() */
     bool       done;
     AccessObservation pending;
 };
 
 /* -------------------------------------------------------------------------
- * Raw NFC callback — runs on the NFC worker thread
+ * ISO15693_3 poller callback — runs on the NFC worker thread
+ *
+ * The ISO15693_3 poller fires Iso15693_3PollerEventTypeError whenever the
+ * standard inventory command gets no response.  HID iCLASS DP never responds
+ * to inventory, so we always arrive here.  With the ISO15693 RF channel
+ * already established, we inject the proprietary ACTALL + IDENTIFY exchange
+ * using the low-level nfc_poller_trx() (raw bytes, no CRC manipulation).
  * -------------------------------------------------------------------------
  */
-static NfcCommand iclass_nfc_callback(NfcEvent event, void* context) {
+static NfcCommand iclass_poller_cb(NfcGenericEvent event, void* context) {
     IclassProvider* p = context;
+    Iso15693_3PollerEvent* iso_event = (Iso15693_3PollerEvent*)event.event_data;
 
-    if(event.type != NfcEventTypePollerReady) {
-        return NfcCommandContinue;
+    if(iso_event->type == Iso15693_3PollerEventTypeReady) {
+        /* A standard ISO15693 card responded to inventory — not an iCLASS DP.
+         * Reset and keep scanning. */
+        return NfcCommandReset;
     }
+
+    /* Iso15693_3PollerEventTypeError: inventory got no response.
+     * The RF field is still on.  Try iCLASS ACTALL then IDENTIFY.
+     * NfcCommandReset on any failure causes the poller to restart with its
+     * own built-in inter-poll delay, preventing a tight spin. */
 
     /* ── Step 1: ACTALL ── */
     bit_buffer_reset(p->tx_buf);
     bit_buffer_append_byte(p->tx_buf, ICLASS_CMD_ACTALL);
 
     NfcError err = nfc_poller_trx(p->nfc, p->tx_buf, p->rx_buf, ICLASS_POLLER_FWT_FC);
-    /* ACTALL response is a bare SOF — IncompleteFrame is the expected result.
-     * Any other error means no card; NfcCommandReset cycles the RF field to
-     * prevent a tight spin and give natural inter-poll pacing. */
+    /* ACTALL response is a bare SOF — IncompleteFrame is success here */
     if(err != NfcErrorNone && err != NfcErrorIncompleteFrame) {
         return NfcCommandReset;
     }
@@ -59,7 +73,7 @@ static NfcCommand iclass_nfc_callback(NfcEvent event, void* context) {
         return NfcCommandReset;
     }
 
-    /* Expect CSN(8) + CRC(2) = 10 bytes; verify and strip CRC */
+    /* Expect CSN(8) + CRC(2) = 10 bytes; verify iCLASS CRC and strip it */
     if(bit_buffer_get_size_bytes(p->rx_buf) != ICLASS_CSN_LEN + 2) {
         return NfcCommandReset;
     }
@@ -79,9 +93,6 @@ static NfcCommand iclass_nfc_callback(NfcEvent event, void* context) {
     p->pending.uid_len = ICLASS_CSN_LEN;
     bit_buffer_write_bytes(p->rx_buf, p->pending.uid, ICLASS_CSN_LEN);
     p->done = true;
-    /* NfcCommandStop will auto-stop the NFC worker — mark as no longer running
-     * so iclass_provider_stop() does not call nfc_stop() a second time. */
-    p->nfc_started = false;
 
     furi_mutex_release(p->mutex);
 
@@ -99,13 +110,13 @@ IclassProvider* iclass_provider_alloc(Nfc* nfc) {
     IclassProvider* p = malloc(sizeof(IclassProvider));
     if(!p) return NULL;
 
-    p->nfc         = nfc;   /* borrowed — not owned */
-    p->tx_buf      = bit_buffer_alloc(ICLASS_BUF_SIZE);
-    p->rx_buf      = bit_buffer_alloc(ICLASS_BUF_SIZE);
-    p->mutex       = furi_mutex_alloc(FuriMutexTypeNormal);
-    p->nfc_started = false;
-    p->done        = false;
-    p->pending     = (AccessObservation){0};
+    p->nfc    = nfc;   /* borrowed — not owned */
+    p->poller = NULL;
+    p->tx_buf = bit_buffer_alloc(ICLASS_BUF_SIZE);
+    p->rx_buf = bit_buffer_alloc(ICLASS_BUF_SIZE);
+    p->mutex  = furi_mutex_alloc(FuriMutexTypeNormal);
+    p->done   = false;
+    p->pending = (AccessObservation){0};
 
     if(!p->tx_buf || !p->rx_buf || !p->mutex) {
         if(p->tx_buf) bit_buffer_free(p->tx_buf);
@@ -132,37 +143,36 @@ void iclass_provider_start(IclassProvider* provider) {
     if(!provider) return;
 
     furi_mutex_acquire(provider->mutex, FuriWaitForever);
-    bool already_running = provider->nfc_started;
+    bool already_running = (provider->poller != NULL);
     provider->done = false;
     furi_mutex_release(provider->mutex);
 
     if(already_running) return;
 
-    /* The Nfc* is idle here — NfcScanner already called nfc_stop() internally
-     * when observation_provider_stop() ran. Do NOT call nfc_stop() again as
-     * that asserts nfc->is_started and would crash. */
-    nfc_config(provider->nfc, NfcModePoller, NfcTechIso15693);
-    nfc_set_guard_time_us(provider->nfc, 10000);
-    nfc_set_fdt_poll_fc(provider->nfc, 5000);
-    nfc_set_fdt_poll_poll_us(provider->nfc, 1000);
-    nfc_start(provider->nfc, iclass_nfc_callback, provider);
+    /* Start an ISO15693_3 poller directly (no NfcScanner needed).
+     * The poller manages the Nfc* lifecycle — no nfc_config/nfc_start needed. */
+    NfcPoller* poller = nfc_poller_alloc(provider->nfc, NfcProtocolIso15693_3);
 
     furi_mutex_acquire(provider->mutex, FuriWaitForever);
-    provider->nfc_started = true;
+    provider->poller = poller;
     furi_mutex_release(provider->mutex);
+
+    if(poller) {
+        nfc_poller_start(poller, iclass_poller_cb, provider);
+    }
 }
 
 void iclass_provider_stop(IclassProvider* provider) {
     if(!provider) return;
 
-    /* Atomically take the started flag to avoid double nfc_stop(). */
     furi_mutex_acquire(provider->mutex, FuriWaitForever);
-    bool started = provider->nfc_started;
-    provider->nfc_started = false;
+    NfcPoller* poller = provider->poller;
+    provider->poller = NULL;
     furi_mutex_release(provider->mutex);
 
-    if(started) {
-        nfc_stop(provider->nfc);
+    if(poller) {
+        nfc_poller_stop(poller);
+        nfc_poller_free(poller);
     }
 }
 
