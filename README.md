@@ -23,11 +23,28 @@ Tap a card, get an instant risk score and plain-English advice. Save a named ses
 
 ## Installation
 
-### From release (recommended)
+### Option 1 — qFlipper (recommended)
 
 1. Download `access_audit.fap` from the [latest release](https://github.com/matthewkayne/flipper-access-audit/releases/latest)
-2. Copy it to `apps/Tools/` on your Flipper's SD card via qFlipper or USB
-3. Launch from **Apps → Tools → Access Audit**
+2. Open [qFlipper](https://flipperzero.one/update) and connect your Flipper via USB
+3. Click the **File manager** tab
+4. Navigate to `SD Card → apps → Tools`
+5. Drag and drop `access_audit.fap` into that folder
+6. On your Flipper: **Apps → Tools → Access Audit**
+
+### Option 2 — USB mass storage
+
+1. Download `access_audit.fap` from the [latest release](https://github.com/matthewkayne/flipper-access-audit/releases/latest)
+2. On your Flipper: **Settings → Storage → Unmount SD card** — this exposes the SD card as a USB drive
+3. Copy `access_audit.fap` to the `apps/Tools/` folder on the drive
+4. Eject the drive, then on your Flipper: **Apps → Tools → Access Audit**
+
+### Option 3 — SD card reader
+
+1. Download `access_audit.fap` from the [latest release](https://github.com/matthewkayne/flipper-access-audit/releases/latest)
+2. Remove the SD card from your Flipper and insert it into a card reader
+3. Copy `access_audit.fap` to the `apps/Tools/` folder on the card (create the folder if it doesn't exist)
+4. Reinsert the SD card and launch from **Apps → Tools → Access Audit**
 
 ### Build from source
 
@@ -36,6 +53,7 @@ Requires [uFBT](https://github.com/flipperdevices/flipperzero-ufbt).
 ```sh
 ufbt
 # FAP is written to dist/access_audit.fap
+# Then follow any option above to copy it to your Flipper
 ```
 
 ---
