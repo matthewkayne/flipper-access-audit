@@ -380,11 +380,14 @@ int32_t access_audit_app(void* p) {
     AccessAuditEvent event;
 
     while(running) {
-        /* Auto-exit after the save confirmation screen. Each queue timeout
+        /* Return to scan screen after the save confirmation. Each queue timeout
            is ~100 ms so 12 ticks ≈ 1.2 s. */
         if(app->screen == AccessAuditScreenSaved) {
             if(--app->saved_ticks <= 0) {
-                running = false;
+                session_init(&app->session);
+                access_audit_reset_to_scan(app);
+                access_audit_start_scanning(app);
+                view_port_update(app->view_port);
             }
         }
 
@@ -568,8 +571,11 @@ int32_t access_audit_app(void* p) {
                         }
                     }
                 } else if(app->screen == AccessAuditScreenSaved) {
-                    /* Any key press skips the countdown and exits immediately. */
-                    running = false;
+                    /* Any key press skips the countdown and returns to scan. */
+                    session_init(&app->session);
+                    access_audit_reset_to_scan(app);
+                    access_audit_start_scanning(app);
+                    view_port_update(app->view_port);
                 }
             }
         }
