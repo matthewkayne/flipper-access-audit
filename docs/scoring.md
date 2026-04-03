@@ -1,6 +1,6 @@
 # Scoring
 
-The audit score is a single integer in 0–100 that summarises the risk exposure of a scanned credential. It is built from additive rule contributions minus any mitigations, then clamped to 0–100.
+The audit score is a single integer in 0-100 that summarises the risk exposure of a scanned credential. It is built from additive rule contributions minus any mitigations, then clamped to 0-100.
 
 ---
 
@@ -27,14 +27,14 @@ Each rule fires independently. Multiple rules can fire on the same observation.
 
 | Rule | Points | Effect |
 |---|---|---|
-| `modern_crypto` | −20 | Reduces score; lowers severity label (see below) |
+| `modern_crypto` | -20 | Reduces score; lowers severity label (see below) |
 
 ### Confidence penalties
 
 | Rule | Confidence reduction |
 |---|---|
-| `incomplete_evidence` | −20% |
-| `no_uid` | −15% |
+| `incomplete_evidence` | -20% |
+| `no_uid` | -15% |
 
 Confidence starts at 90% and cannot go below 0%.
 
@@ -42,10 +42,10 @@ Confidence starts at 90% and cannot go below 0%.
 
 | Label | Score range |
 |---|---|
-| HIGH RISK | 35–100 |
-| MODERATE | 20–34 |
-| LOW RISK | 10–19 |
-| SECURE | 0–9 |
+| HIGH RISK | 35-100 |
+| MODERATE | 20-34 |
+| LOW RISK | 10-19 |
+| SECURE | 0-9 |
 
 ### `modern_crypto` severity downgrade
 
@@ -55,7 +55,7 @@ When `modern_crypto` fires, the severity label is adjusted after the score is ca
   - HIGH → MEDIUM (score reduced but card is not a legacy protocol)
   - MEDIUM → SECURE (when the resulting score reaches zero)
 
-If both `modern_crypto` and `legacy_family` fire simultaneously (which cannot happen with the current card set — no card is both legacy and modern), the severity is not downgraded.
+If both `modern_crypto` and `legacy_family` fire simultaneously (which cannot happen with the current card set; no card is both legacy and modern), the severity is not downgraded.
 
 ---
 
@@ -119,13 +119,13 @@ If both `modern_crypto` and `legacy_family` fire simultaneously (which cannot ha
 | Step | Value |
 |---|---|
 | `identifier_only_pattern` fires (`uid_present=true`, `user_memory_present=false`, `metadata_complete=true`) | +35 |
-| `uid_no_memory` does **not** fire — its guard prevents it when `identifier_only_pattern` already applies | 0 |
+| `uid_no_memory` does **not** fire; its guard prevents it when `identifier_only_pattern` already applies | 0 |
 | Score | 35 |
 | Max severity | HIGH |
 
 **Result: HIGH RISK · 35/100**
 
-> If the poller returned incomplete metadata (`metadata_complete=false`), `identifier_only_pattern` does not fire. Instead: `uid_no_memory` (+20) + `incomplete_evidence` (+10, −20% confidence) = 30, MODERATE · 70% confidence.
+> If the poller returned incomplete metadata (`metadata_complete=false`), `identifier_only_pattern` does not fire. Instead: `uid_no_memory` (+20) + `incomplete_evidence` (+10, -20% confidence) = 30, MODERATE · 70% confidence.
 
 ---
 
@@ -133,7 +133,7 @@ If both `modern_crypto` and `legacy_family` fire simultaneously (which cannot ha
 
 | Step | Value |
 |---|---|
-| `modern_crypto` fires | −20 |
+| `modern_crypto` fires | -20 |
 | No other rules fire | 0 |
 | Score (clamped at 0) | 0 |
 | Severity before mitigation | INFO |
@@ -147,13 +147,13 @@ If both `modern_crypto` and `legacy_family` fire simultaneously (which cannot ha
 
 | Step | Value |
 |---|---|
-| `modern_crypto` fires (EV1 uses 3DES, counts as modern) | −20 |
+| `modern_crypto` fires (EV1 uses 3DES, counts as modern) | -20 |
 | Score | 0 |
 | Max severity | SECURE |
 
 **Result: SECURE · 0/100**
 
-> EV1 uses 3DES rather than AES. The report advice flags this: "EV1 uses 3DES. Upgrade to EV2/EV3 for AES crypto." The score still reaches SECURE because 3DES is not broken the way Crypto1 is — but the advice recommends an upgrade.
+> EV1 uses 3DES rather than AES. The report advice flags this: "EV1 uses 3DES. Upgrade to EV2/EV3 for AES crypto." The score still reaches SECURE because 3DES is not broken the way Crypto1 is, but the advice recommends an upgrade.
 
 ---
 
@@ -161,7 +161,7 @@ If both `modern_crypto` and `legacy_family` fire simultaneously (which cannot ha
 
 | Step | Value |
 |---|---|
-| `modern_crypto` fires (AES active) | −20 |
+| `modern_crypto` fires (AES active) | -20 |
 | `uid_no_memory` would fire but `identifier_only_pattern` fires first if `metadata_complete=true` | +35 |
 | Score | 15 |
 | Severity | HIGH → MEDIUM (modern_crypto downgrade, no legacy rule) |
@@ -176,8 +176,8 @@ If both `modern_crypto` and `legacy_family` fire simultaneously (which cannot ha
 
 | Step | Value |
 |---|---|
-| `incomplete_evidence` fires | +10, −20% confidence |
-| `no_uid` fires | +10, −15% confidence |
+| `incomplete_evidence` fires | +10, -20% confidence |
+| `no_uid` fires | +10, -15% confidence |
 | Score | 20 |
 | Max severity | MEDIUM |
 | Confidence | 55% |

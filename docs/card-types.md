@@ -14,7 +14,7 @@ Risk ratings assume `metadata_complete=true` and a UID is present. Incomplete me
 | `CardTypeHidProxLike` | **HIGH RISK** | HID ProxCard II 26-bit Wiegand, very widespread | Replace with iCLASS SE, Seos, or DESFire EV2+ |
 | `CardTypeHidGeneric` | **HIGH RISK** | HID extended/non-standard 125 kHz formats | Replace with iCLASS SE, Seos, or DESFire EV2+ |
 | `CardTypeIndala` | **HIGH RISK** | Legacy ASSA ABLOY / Motorola installs | Replace with modern card; Indala is clonable |
-| `CardTypeRfid125` | **HIGH RISK** | Any unclassified 125 kHz token | Replace — all 125 kHz protocols lack cryptographic protection |
+| `CardTypeRfid125` | **HIGH RISK** | Any unclassified 125 kHz token | Replace; all 125 kHz protocols lack cryptographic protection |
 
 All 125 kHz RFID cards trigger `legacy_family` and `identifier_only_pattern`. There is no crypto and the UID alone is the credential.
 
@@ -24,10 +24,10 @@ All 125 kHz RFID cards trigger `legacy_family` and `identifier_only_pattern`. Th
 
 | Card Type | Risk | Common deployment | Recommendation |
 |---|---|---|---|
-| `CardTypeMifareClassic` | **HIGH RISK** | Generic fallback — exact size unknown | Treat as Classic 1K; replace with DESFire EV2+ or Plus SL3 |
+| `CardTypeMifareClassic` | **HIGH RISK** | Generic fallback, exact size unknown | Treat as Classic 1K; replace with DESFire EV2+ or Plus SL3 |
 | `CardTypeMifareClassic1K` | **HIGH RISK** | Mass market access control, hotel keys, transit | Replace with DESFire EV2/EV3 or MIFARE Plus SL3 |
 | `CardTypeMifareClassic4K` | **HIGH RISK** | High-capacity Classic deployment | Replace with DESFire EV2/EV3 |
-| `CardTypeMifareClassicMini` | **HIGH RISK** | Rarely deployed; same Crypto1 weakness | Replace — Crypto1 is broken regardless of size |
+| `CardTypeMifareClassicMini` | **HIGH RISK** | Rarely deployed; same Crypto1 weakness | Replace; Crypto1 is broken regardless of size |
 
 Crypto1 has been publicly broken since 2008 (CRYPTO1 attacks, Darkside, Nested). Any MIFARE Classic deployment should be treated as compromised.
 
@@ -54,12 +54,12 @@ None of the Ultralight/NTAG variants offer mutual authentication. Using them for
 | Card Type | Risk | Crypto | Recommendation |
 |---|---|---|---|
 | `CardTypeMifareDesfire` | SECURE | Unknown variant | Verify key diversification and mutual auth |
-| `CardTypeMifareDesfireEV1` | SECURE | DES / 3DES | Upgrade to EV2/EV3 — AES not available on EV1 |
+| `CardTypeMifareDesfireEV1` | SECURE | DES / 3DES | Upgrade to EV2/EV3; AES not available on EV1 |
 | `CardTypeMifareDesfireEV2` | SECURE | AES-128 | Verify key diversification; consider EV3 for latest security |
 | `CardTypeMifareDesfireEV3` | SECURE | AES-128 + enhanced | Verify key diversification and mutual auth configuration |
 | `CardTypeMifareDesfireLight` | SECURE | AES-128 | Verify key diversification; Light has reduced feature set |
 
-DESFire scores SECURE but the report advice flags EV1's older DES/3DES crypto. All DESFire variants can be misconfigured — the card being present does not mean the application is properly locked.
+DESFire scores SECURE but the report advice flags EV1's older DES/3DES crypto. All DESFire variants can be misconfigured; the card being present does not mean the application is properly locked.
 
 ---
 
@@ -106,8 +106,8 @@ The iCLASS standard DES/3DES master key was publicly disclosed. Attacks against 
 
 | Card Type | Risk | Notes |
 |---|---|---|
-| `CardTypeFelica` | SECURE | FeliCa Standard — proprietary crypto; verify application configuration |
-| `CardTypeFeliCaLite` | **HIGH RISK** | FeliCa Lite — no mutual authentication; UID-only credential, trivially clonable. Avoid for access control; use standard FeliCa or DESFire EV2+ |
+| `CardTypeFelica` | SECURE | FeliCa Standard, proprietary crypto; verify application configuration |
+| `CardTypeFeliCaLite` | **HIGH RISK** | FeliCa Lite, no mutual authentication; UID-only credential, trivially clonable. Avoid for access control; use standard FeliCa or DESFire EV2+ |
 
 FeliCa Lite is common in transit and low-security building systems. It is physically the same form factor as standard FeliCa but lacks the cryptographic authentication layer.
 
