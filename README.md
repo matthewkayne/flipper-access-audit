@@ -1,5 +1,9 @@
 # Flipper Access Audit
 
+[![Build](https://github.com/matthewkayne/flipper-access-audit/actions/workflows/build.yml/badge.svg)](https://github.com/matthewkayne/flipper-access-audit/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/matthewkayne/flipper-access-audit)](https://github.com/matthewkayne/flipper-access-audit/releases/latest)
+[![License](https://img.shields.io/github/license/matthewkayne/flipper-access-audit)](LICENSE)
+
 A Flipper Zero app for **defensive auditing of NFC and RFID access-control credentials**.
 
 Tap a card, get an instant risk score and plain-English advice. Save a named session report to SD.
