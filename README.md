@@ -127,32 +127,6 @@ access_audit.c            — app loop, screens, input handling
 
 ---
 
-## Roadmap
-
-- [x] NFC card scan and classification
-- [x] Risk scoring with named rules
-- [x] Result screen with prominent risk label
-- [x] Multi-scan session buffer
-- [x] SD card report saving
-- [x] Card sub-type detection (Classic 1K/4K/Mini, NTAG213/215/216)
-- [x] On-device report viewer
-- [x] RFID 125 kHz support (EM4100, HID H10301/Generic, Indala, and more)
-- [x] Session summary stats (high/medium/low counts per report)
-- [x] FeliCa Lite detection (no mutual auth — HIGH RISK)
-- [x] Risk summary (H:N M:N) shown per row in report list
-- [x] Named scan sessions (optional QWERTY keyboard on save)
-- [x] DESFire EV1/EV2/EV3/Light detection (via GetVersion)
-- [x] MIFARE Plus SL1/SL2/SL3 detection (via security level)
-- [x] Per-card advice and session-level advisory in reports
-- [x] v1.0.0 stable release
-- [x] HID iCLASS scanning with memory variant detection
-- [x] Flipper App Catalog submission
-- [x] Delete report from on-device viewer
-- [x] SAK/ATQA raw values captured and written to reports
-- [x] Session card count visible on scan screen
-
----
-
 ## License
 
-[MIT](LICENSE)
+MIT
