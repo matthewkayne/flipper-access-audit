@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [1.4.1] — Build fix
+
+### Fixed
+- `date_str` buffer in report list draw widened to `REPORT_NAME_LEN` to silence `-Werror=format-truncation` on the CI build toolchain (local build passed; CI dev SDK triggered it)
+
 ## [1.4.0] — FeliCa sub-type detection, risk summary in report list
 
 ### Added
