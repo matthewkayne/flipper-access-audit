@@ -102,11 +102,21 @@ The iCLASS standard DES/3DES master key was publicly disclosed. Attacks against 
 
 ---
 
+## FeliCa family
+
+| Card Type | Risk | Notes |
+|---|---|---|
+| `CardTypeFelica` | SECURE | FeliCa Standard — proprietary crypto; verify application configuration |
+| `CardTypeFeliCaLite` | **HIGH RISK** | FeliCa Lite — no mutual authentication; UID-only credential, trivially clonable. Avoid for access control; use standard FeliCa or DESFire EV2+ |
+
+FeliCa Lite is common in transit and low-security building systems. It is physically the same form factor as standard FeliCa but lacks the cryptographic authentication layer.
+
+---
+
 ## Other NFC protocols
 
 | Card Type | Risk | Notes |
 |---|---|---|
-| `CardTypeFelica` | SECURE | Sony FeliCa with proprietary crypto; verify application configuration |
 | `CardTypeSlix` | MODERATE | NXP SLIX (ISO15693 variant); typically used for asset tracking, not access |
 | `CardTypeSt25tb` | MODERATE | STMicroelectronics ISO14443-B; verify application crypto |
 

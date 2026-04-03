@@ -78,7 +78,7 @@ Matches:
 - MIFARE DESFire (all variants: EV1, EV2, EV3, Light) — DES/3DES or AES
 - MIFARE Plus SL2 — AES crypto active (Classic-format frames)
 - MIFARE Plus SL3 — AES crypto + ISO14443-4 protocol
-- FeliCa — proprietary crypto
+- FeliCa Standard — proprietary crypto (FeliCa Lite is excluded — no mutual auth)
 
 **Score contribution:** −20
 

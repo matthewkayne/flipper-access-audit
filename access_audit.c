@@ -231,7 +231,7 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
                 }
                 /* Format name "YYYYMMDD_HHMMSS" → "YYYYMMDD HH:MM" */
                 const char* n = app->rlist_names[idx];
-                char date_str[16];
+                char date_str[REPORT_NAME_LEN];
                 if(strlen(n) >= 15) {
                     snprintf(
                         date_str,
