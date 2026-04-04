@@ -129,10 +129,8 @@ access_audit.c            - app loop, screens, input handling
 
 ## Author
 
-[@matthewkayne](https://github.com/matthewkayne) - AI-assisted development with [Claude Code](https://claude.ai/code)
+[@matthewkayne](https://github.com/matthewkayne) 
+
+AI-assisted development with Claude Code
 
 ---
-
-## License
-
-MIT
