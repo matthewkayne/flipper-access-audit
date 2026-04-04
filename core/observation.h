@@ -63,6 +63,7 @@ typedef struct {
     bool user_memory_present; /* true when authenticated/protected application memory confirmed */
     bool metadata_complete;   /* false when classification could not read all expected fields */
     bool sak_atqa_present;    /* true when SAK and ATQA were captured (ISO14443-3A only) */
+    bool default_keys_readable; /* true when sector 0 auth succeeded with a default key (Classic only) */
     size_t uid_len;
     uint8_t uid[10];
     uint8_t sak;              /* ISO14443-3A Select Acknowledge byte */

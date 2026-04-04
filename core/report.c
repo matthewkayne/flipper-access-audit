@@ -220,6 +220,7 @@ static void write_card_entry(
         {"modern_crypto", rule_modern_crypto(&entry->obs)},
         {"incomplete_evidence", rule_incomplete_evidence(&entry->obs)},
         {"no_uid", rule_no_uid(&entry->obs)},
+        {"default_keys", rule_default_keys(&entry->obs)},
     };
 
     fw(f, "  Rules:  ");
@@ -241,6 +242,13 @@ static void write_card_entry(
         fw(f, advice);
         fw(f, "\n");
     }
+
+    /* Default key finding - explicit note when confirmed via active scan */
+    if(rule_default_keys(&entry->obs)) {
+        fw(f, "  Note:   Sector 0 readable with a default key (active scan). "
+              "Keys have never been changed.\n");
+    }
+
     fw(f, "\n");
 }
 
