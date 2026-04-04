@@ -5,6 +5,8 @@
 #include <nfc/protocols/nfc_protocol.h>
 #include <nfc/protocols/iso14443_3a/iso14443_3a.h>
 #include <nfc/protocols/iso14443_3a/iso14443_3a_poller.h>
+#include <nfc/protocols/mf_classic/mf_classic.h>
+#include <nfc/protocols/mf_classic/mf_classic_poller.h>
 #include <nfc/protocols/mf_ultralight/mf_ultralight.h>
 #include <nfc/protocols/mf_ultralight/mf_ultralight_poller.h>
 #include <nfc/protocols/mf_desfire/mf_desfire.h>
@@ -150,6 +152,10 @@ static NfcProtocol uid_transport(const NfcProtocol* protos, size_t count) {
     /* Prefer MfPlus poller — gives security level and UID. */
     for(size_t i = 0; i < count; i++) {
         if(protos[i] == NfcProtocolMfPlus) return NfcProtocolMfPlus;
+    }
+    /* Prefer MfClassic poller — attempts default key auth on sector 0. */
+    for(size_t i = 0; i < count; i++) {
+        if(protos[i] == NfcProtocolMfClassic) return NfcProtocolMfClassic;
     }
     /* Prefer MfUltralight over bare ISO14443-3a so we get NTAG sub-type. */
     for(size_t i = 0; i < count; i++) {
@@ -511,6 +517,106 @@ static NfcCommand mf_plus_poller_cb(NfcGenericEvent event, void* context) {
 }
 
 /* -------------------------------------------------------------------------
+ * MfClassic poller callback  (runs on NFC worker thread)
+ *
+ * Uses MfClassicPollerModeRead. The poller fires RequestReadSector starting
+ * from sector 0. On that event we manually call mf_classic_poller_auth with
+ * two well-known default keys (FFFFFFFFFFFF and A0A1A2A3A4A5, both key types)
+ * and record whether any succeeded. We then halt the card and stop — no full
+ * sector read is performed and no card data is retained.
+ *
+ * Default keys checked (in order):
+ *   FFFFFFFFFFFF key A, FFFFFFFFFFFF key B
+ *   A0A1A2A3A4A5 key A, A0A1A2A3A4A5 key B
+ * -------------------------------------------------------------------------
+ */
+
+static NfcCommand mf_classic_poller_cb(NfcGenericEvent event, void* context) {
+    ObservationProvider* p = context;
+    MfClassicPollerEvent* cl_event = (MfClassicPollerEvent*)event.event_data;
+
+    if(cl_event->type == MfClassicPollerEventTypeRequestMode) {
+        cl_event->data->poller_mode.mode = MfClassicPollerModeRead;
+        cl_event->data->poller_mode.data = NULL;
+        return NfcCommandContinue;
+    }
+
+    if(cl_event->type == MfClassicPollerEventTypeRequestReadSector &&
+       cl_event->data->read_sector_request_data.sector_num == 0) {
+        static const uint8_t DEFAULT_KEYS[][MF_CLASSIC_KEY_SIZE] = {
+            {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, /* FFFFFFFFFFFF */
+            {0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5}, /* A0A1A2A3A4A5 */
+        };
+        static const MfClassicKeyType KEY_TYPES[] = {MfClassicKeyTypeA, MfClassicKeyTypeB};
+
+        MfClassicPoller* cl_poller = (MfClassicPoller*)event.instance;
+        MfClassicAuthContext auth_ctx;
+        bool default_key_found = false;
+
+        for(size_t k = 0; k < 2 && !default_key_found; k++) {
+            for(size_t t = 0; t < 2 && !default_key_found; t++) {
+                MfClassicKey key;
+                memcpy(key.data, DEFAULT_KEYS[k], MF_CLASSIC_KEY_SIZE);
+                MfClassicError err = mf_classic_poller_auth(
+                    cl_poller, 0, &key, KEY_TYPES[t], &auth_ctx, false);
+                if(err == MfClassicErrorNone) default_key_found = true;
+            }
+        }
+
+        mf_classic_poller_halt(cl_poller);
+
+        const MfClassicData* cl_data = (const MfClassicData*)nfc_poller_get_data(p->poller);
+
+        furi_mutex_acquire(p->mutex, FuriWaitForever);
+
+        if(cl_data) {
+            size_t uid_len = 0;
+            const uint8_t* uid = mf_classic_get_uid(cl_data, &uid_len);
+            const Iso14443_3aData* iso_data = mf_classic_get_base_data(cl_data);
+
+            p->pending = (AccessObservation){0};
+            p->pending.tech = TechTypeNfc13Mhz;
+            p->pending.metadata_complete = true;
+            p->pending.default_keys_readable = default_key_found;
+
+            if(iso_data) {
+                uint8_t sak = iso14443_3a_get_sak(iso_data);
+                uint8_t atqa[2];
+                iso14443_3a_get_atqa(iso_data, atqa);
+                p->pending.card_type =
+                    classic_subtype_from_sak(sak, p->detected_card_type);
+                p->pending.sak_atqa_present = true;
+                p->pending.sak = sak;
+                p->pending.atqa[0] = atqa[0];
+                p->pending.atqa[1] = atqa[1];
+            } else {
+                p->pending.card_type = p->detected_card_type;
+            }
+
+            if(uid && uid_len > 0) {
+                p->pending.uid_present = true;
+                p->pending.uid_len =
+                    uid_len <= sizeof(p->pending.uid) ? uid_len : sizeof(p->pending.uid);
+                memcpy(p->pending.uid, uid, p->pending.uid_len);
+            }
+
+            p->state = ProviderStateDone;
+        } else {
+            p->state = ProviderStateReadFailed;
+        }
+
+        furi_mutex_release(p->mutex);
+        return NfcCommandStop;
+    }
+
+    /* Fail, CardLost, or any event before sector 0 is requested. */
+    furi_mutex_acquire(p->mutex, FuriWaitForever);
+    p->state = ProviderStateReadFailed;
+    furi_mutex_release(p->mutex);
+    return NfcCommandStop;
+}
+
+/* -------------------------------------------------------------------------
  * ISO15693-3 poller callback  (runs on NFC worker thread)
  *
  * EventTypeReady  — full activation succeeded (inventory + system info).
@@ -669,6 +775,8 @@ static NfcGenericCallback callback_for_protocol(NfcProtocol protocol) {
         return mf_desfire_poller_cb;
     case NfcProtocolMfPlus:
         return mf_plus_poller_cb;
+    case NfcProtocolMfClassic:
+        return mf_classic_poller_cb;
     case NfcProtocolMfUltralight:
         return mf_ultralight_poller_cb;
     case NfcProtocolIso14443_3a:

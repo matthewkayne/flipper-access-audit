@@ -37,3 +37,12 @@ bool rule_no_uid(const AccessObservation* obs);
  * Presence of this rule reduces the effective risk score.
  */
 bool rule_modern_crypto(const AccessObservation* obs);
+
+/* ── Active findings ── */
+
+/**
+ * Sector 0 on a MIFARE Classic card was authenticated with a well-known
+ * default key (FFFFFFFFFFFF or A0A1A2A3A4A5, key A or B).
+ * Indicates the card has never had its keys changed.
+ */
+bool rule_default_keys(const AccessObservation* obs);

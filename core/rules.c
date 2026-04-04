@@ -46,6 +46,11 @@ bool rule_no_uid(const AccessObservation* obs) {
     return !obs->uid_present || obs->uid_len == 0;
 }
 
+bool rule_default_keys(const AccessObservation* obs) {
+    if(!obs) return false;
+    return obs->default_keys_readable;
+}
+
 bool rule_modern_crypto(const AccessObservation* obs) {
     if(!obs) return false;
     switch(obs->card_type) {

@@ -68,6 +68,22 @@ UID could not be extracted. The observation cannot be fully assessed.
 
 ---
 
+## Active scan findings
+
+### `default_keys`
+
+Fires when sector 0 on a MIFARE Classic card was authenticated using a well-known default key. Indicates the card keys have never been changed from factory defaults.
+
+Keys checked (key A and key B for each):
+- `FFFFFFFFFFFF` - factory default for all sectors on a new card
+- `A0A1A2A3A4A5` - common key A default in NXP reference deployments
+
+This rule requires an active authentication attempt. A note is written to the report indicating the finding came from an active scan.
+
+**Score contribution:** +15 · **Max severity:** HIGH
+
+---
+
 ## Mitigating rules
 
 ### `modern_crypto`

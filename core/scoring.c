@@ -44,6 +44,13 @@ AuditScore score_observation(const AccessObservation* obs) {
         result.max_severity = max_sev(result.max_severity, SeverityHigh);
     }
 
+    /* Default keys — additional finding on top of legacy_family for Classic cards.
+     * Card keys have never been changed; sector 0 is trivially readable. */
+    if(rule_default_keys(obs)) {
+        result.score += 15;
+        result.max_severity = max_sev(result.max_severity, SeverityHigh);
+    }
+
     /* ── Medium-risk rules ── */
     if(rule_uid_no_memory(obs)) {
         result.score += severity_points(SeverityMedium);
