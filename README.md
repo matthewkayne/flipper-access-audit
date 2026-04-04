@@ -124,9 +124,3 @@ core/
   report.c                - SD card save + report listing/loading
 access_audit.c            - app loop, screens, input handling
 ```
-
----
-
-## License
-
-MIT
