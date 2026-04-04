@@ -45,7 +45,7 @@ jobs:
           echo "Version check passed."
 
       - name: Build FAP (official release SDK)
-        uses: flipperdevices/flipperzero-ufbt-action@v0.1.3
+        uses: flipperdevices/flipperzero-ufbt-action@v0.1.4
         with:
           app-dir: .
           sdk-channel: release
