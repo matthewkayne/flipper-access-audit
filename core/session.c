@@ -13,6 +13,18 @@ bool session_append(
     if(!session || !obs || !score) return false;
     if(session->count >= SESSION_MAX_ENTRIES) return false;
 
+    /* Deduplicate by UID. Cards without a UID cannot be deduplicated and are
+     * always appended. Cards with a UID are skipped if already present. */
+    if(obs->uid_present && obs->uid_len > 0) {
+        for(size_t i = 0; i < session->count; i++) {
+            const AccessObservation* existing = &session->entries[i].obs;
+            if(existing->uid_present && existing->uid_len == obs->uid_len &&
+               memcmp(existing->uid, obs->uid, obs->uid_len) == 0) {
+                return false;
+            }
+        }
+    }
+
     session->entries[session->count].obs = *obs;
     session->entries[session->count].score = *score;
     session->count++;
