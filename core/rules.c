@@ -12,8 +12,9 @@ bool rule_legacy_family(const AccessObservation* obs) {
         return true;
     /* MIFARE Plus SL1 — Classic-compatibility mode, no AES in use */
     if(obs->card_type == CardTypeMifarePlusSL1) return true;
-    /* HID iCLASS — DES/3DES crypto, master key attack is well-documented */
-    if(obs->card_type == CardTypeHidIclass) return true;
+    /* HID iCLASS Legacy — DES/3DES crypto, master key attack is well-documented.
+     * CardTypeHidIclass (unconfirmed TI manufacturer code) is excluded here;
+     * it scores MODERATE until the iCLASS scan confirms the Legacy type. */
     if(obs->card_type == CardTypeHidIclassLegacy) return true;
     if(obs->card_type == CardTypeHidIclassLegacy2k) return true;
     if(obs->card_type == CardTypeHidIclassLegacy16k) return true;
