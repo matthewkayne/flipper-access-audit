@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [1.4.2]: Scoring fix for unconfirmed iCLASS cards
+
+### Fixed
+- `CardTypeHidIclass` (unconfirmed TI ISO15693 card, not yet verified via iCLASS scan) was incorrectly included in `rule_legacy_family`, causing it to score HIGH RISK instead of MODERATE. Only confirmed Legacy variants (`CardTypeHidIclassLegacy`, `2k`, `16k`, `32k`) now trigger the legacy rule, matching the documented behaviour in `docs/card-types.md`
+
 ## [1.4.1]: Build fix
 
 ### Fixed
