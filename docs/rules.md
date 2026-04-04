@@ -121,6 +121,7 @@ Matches:
 |---|---|---|---|
 | EM4100 | legacy_family, identifier_only_pattern | 70 | HIGH RISK |
 | MIFARE Classic 1K | legacy_family, identifier_only_pattern | 70 | HIGH RISK |
+| MIFARE Classic 1K (default keys) | legacy_family, identifier_only_pattern, default_keys | 85 | HIGH RISK |
 | MIFARE Plus SL1 | legacy_family, identifier_only_pattern | 70 | HIGH RISK |
 | HID iCLASS Legacy 2k | legacy_family, identifier_only_pattern | 70 | HIGH RISK |
 | MIFARE Plus SL2 | identifier_only_pattern, modern_crypto | 15 | MODERATE |

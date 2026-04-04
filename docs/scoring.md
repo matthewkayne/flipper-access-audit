@@ -19,6 +19,7 @@ Each rule fires independently. Multiple rules can fire on the same observation.
 |---|---|---|
 | `legacy_family` | +35 | HIGH |
 | `identifier_only_pattern` | +35 | HIGH |
+| `default_keys` | +15 | HIGH |
 | `uid_no_memory` | +20 | MEDIUM |
 | `incomplete_evidence` | +10 | LOW |
 | `no_uid` | +10 | LOW |
@@ -85,6 +86,8 @@ If both `modern_crypto` and `legacy_family` fire simultaneously (which cannot ha
 | Max severity | HIGH |
 
 **Result: HIGH RISK · 70/100**
+
+> If sector 0 authenticates with a default key, `default_keys` also fires (+15), raising the score to 85/100.
 
 ---
 
