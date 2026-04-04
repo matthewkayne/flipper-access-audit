@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## [1.4.3]: Duplicate card deduplication
+
+### Fixed
+- Tapping the same card multiple times in a session no longer adds duplicate entries; `session_append` now compares incoming UID bytes against all existing entries and skips the tap if a match is found. UID-less cards are always appended as they cannot be deduplicated
+- Report write loop now deduplicates by UID before writing each card entry, so reports correctly list unique cards only even if duplicates reached the session buffer on older builds. Card numbering (Card X/Y) uses the unique count as the total
+
 ## [1.4.2]: Scoring fix for unconfirmed iCLASS cards
 
 ### Fixed
