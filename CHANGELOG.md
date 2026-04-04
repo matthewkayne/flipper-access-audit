@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [1.5.0]: Default MIFARE Classic key detection
+
+### Added
+- **Default key detection**: when a MIFARE Classic card is scanned, the app actively attempts to authenticate sector 0 using four common default key combinations (`FFFFFFFFFFFF` and `A0A1A2A3A4A5`, key A and B each). If any succeeds, the new `default_keys` rule fires (+15 score), the card scores 85/100 instead of 70/100, and the report includes an explicit note flagging the finding as an active scan result. No sector data is read or stored; the card is halted immediately after the auth attempt
+
 ## [1.4.3]: Duplicate card deduplication
 
 ### Fixed
