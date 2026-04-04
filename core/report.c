@@ -331,8 +331,26 @@ bool report_save_session(const ScanSession* session) {
 
         fw(file, "----------------------------------------\n\n");
 
+        /* Write only unique entries. Deduplicate by UID so that cards scanned
+         * more than once (on old builds without session-level dedup) appear
+         * only once in the report body. UID-less entries are always written. */
+        size_t written = 0;
         for(size_t i = 0; i < session->count; i++) {
-            write_card_entry(file, i, session->count, &session->entries[i]);
+            const AccessObservation* obs = &session->entries[i].obs;
+            if(obs->uid_present && obs->uid_len > 0) {
+                bool dup = false;
+                for(size_t j = 0; j < i; j++) {
+                    const AccessObservation* prev = &session->entries[j].obs;
+                    if(prev->uid_present && prev->uid_len == obs->uid_len &&
+                       memcmp(prev->uid, obs->uid, obs->uid_len) == 0) {
+                        dup = true;
+                        break;
+                    }
+                }
+                if(dup) continue;
+            }
+            write_card_entry(file, written, unique, &session->entries[i]);
+            written++;
         }
 
         /* Session-level advisory */
