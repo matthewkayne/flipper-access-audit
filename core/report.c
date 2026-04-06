@@ -527,7 +527,7 @@ ReportSummary report_read_summary(const char* name) {
         storage_file_close(file);
 
         /* Scan line by line for "High: N  Medium: N  Low: N  Secure: N" */
-        char* line = buf;
+        const char* line = buf;
         for(int l = 0; l < 20 && line && *line; l++) {
             char* newline = strchr(line, '\n');
             if(newline) *newline = '\0';
