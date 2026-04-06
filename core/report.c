@@ -11,7 +11,7 @@
 #define TAG "AccessAudit"
 
 #define REPORT_DIR         "/ext/apps_data/access_audit"
-#define REPORT_APP_VERSION "1.0"
+#define REPORT_APP_VERSION "1.7"
 
 /* Write a plain C string to the file. */
 static void fw(File* f, const char* s) {
