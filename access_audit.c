@@ -377,7 +377,6 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
     canvas_draw_str(canvas, 2, 62, "OK:rescan  Back:exit");
 }
 
-// cppcheck-suppress constParameterCallback
 static void access_audit_input_callback(InputEvent* input_event, void* context) {
     AccessAuditApp* app = context;
 

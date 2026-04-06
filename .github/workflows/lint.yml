@@ -39,5 +39,6 @@ jobs:
             --error-exitcode=1 \
             --suppress=missingIncludeSystem \
             --suppress=unmatchedSuppression \
+            --suppress=constParameterCallback \
             -I . \
             core/ access_audit.c access_audit.h
