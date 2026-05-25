@@ -9,8 +9,9 @@ __pycache__/
 # VS Code
 .vscode/
 
-# Claude Code local settings
-.claude/
+# Claude Code - local settings only; settings.json is committed
+.claude/settings.local.json
+CLAUDE.md
 
 # Build outputs
 dist/

@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ufbt:*)",
+      "Bash(gh issue:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh release:*)",
+      "Bash(gh run:*)",
+      "Bash(gh label:*)",
+      "Bash(gh api:*)",
+      "Bash(gh repo:*)",
+      "Bash(gh auth status)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git checkout:*)",
+      "Bash(git tag:*)",
+      "Bash(git rm:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git status)",
+      "Bash(git branch:*)",
+      "Bash(git stash:*)",
+      "Bash(find . -maxdepth 2:*)",
+      "Bash(find ~/.ufbt:*)",
+      "Bash(clang-format:*)",
+      "Bash(cppcheck:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:api.github.com)"
+    ]
+  }
+}
