@@ -54,7 +54,7 @@ jobs:
         run: sha256sum dist/access_audit.fap > dist/access_audit.fap.sha256
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             dist/access_audit.fap
