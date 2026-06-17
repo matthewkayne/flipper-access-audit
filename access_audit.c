@@ -2,7 +2,7 @@
 #include <gui/gui.h>
 #include <input/input.h>
 
-#define APP_VERSION "1.8.1"
+#define APP_VERSION "1.9.0"
 
 #include "access_audit.h"
 #include "core/observation.h"
@@ -376,8 +376,14 @@ static void access_audit_draw_callback(Canvas* canvas, void* context) {
     access_audit_format_uid_line(&app->obs, line, sizeof(line));
     canvas_draw_str(canvas, 2, 48, line);
 
-    /* Help row */
-    canvas_draw_str(canvas, 2, 62, "OK:rescan  Back:exit");
+    /* Bottom row: surface the active-scan default-key finding when present,
+     * otherwise show the controls hint. The finding is the more important
+     * signal and would otherwise only appear in the saved report. */
+    if(app->obs.default_keys_readable) {
+        canvas_draw_str(canvas, 2, 62, "! Default key readable");
+    } else {
+        canvas_draw_str(canvas, 2, 62, "OK:rescan  Back:exit");
+    }
 }
 
 static void access_audit_input_callback(InputEvent* input_event, void* context) {
