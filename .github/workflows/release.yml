@@ -61,3 +61,84 @@ jobs:
             dist/access_audit.fap.sha256
           generate_release_notes: true
           fail_on_unmatched_files: true
+
+  # ── Post-release automation ────────────────────────────────────────────────
+  # Both jobs are gated on the RELEASE_AUTOMATION repo variable so a missing PAT
+  # never fails the release itself. They use github.sha — on a tag push that is
+  # the tagged release commit. To enable: set repo variable RELEASE_AUTOMATION=true
+  # and add secret RELEASE_PAT (a token owned by the repo owner, contents+PR write
+  # on flipper-access-audit and the flipper-application-catalog fork, able to push
+  # to the PR-protected main branch). See CLAUDE.md §6.
+
+  update-manifest-sha:
+    name: Update manifest.yml commit_sha
+    needs: build-and-release
+    if: ${{ vars.RELEASE_AUTOMATION == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          token: ${{ secrets.RELEASE_PAT }}
+
+      # The catalog reads its own manifest (see catalog-pr below); this keeps the
+      # source repo's manifest.yml commit_sha as an accurate record of the release.
+      - name: Point manifest.yml commit_sha at the release commit
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          sed -i -E "s/(commit_sha:[[:space:]]*).*/\1${RELEASE_SHA}/" manifest.yml
+          if git diff --quiet manifest.yml; then
+            echo "commit_sha already current — nothing to push"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: point manifest.yml commit_sha at ${TAG}"
+          git push origin HEAD:main
+
+  catalog-pr:
+    name: Open catalog update PR
+    needs: build-and-release
+    # Catalog versions are MAJOR.MINOR only, so only minor/major releases (vX.Y.0)
+    # warrant a submission; a patch release (vX.Y.1+) is a duplicate catalog version.
+    if: ${{ vars.RELEASE_AUTOMATION == 'true' && endsWith(github.ref_name, '.0') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout catalog fork
+        uses: actions/checkout@v6
+        with:
+          repository: matthewkayne/flipper-application-catalog
+          token: ${{ secrets.RELEASE_PAT }}
+          fetch-depth: 0
+
+      - name: Bump commit_sha in the catalog manifest and open the PR
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          RELEASE_SHA: ${{ github.sha }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/flipperdevices/flipper-application-catalog.git
+          git fetch upstream main
+          BRANCH="matthewkayne/access_audit_${TAG#v}"
+          git checkout -B "$BRANCH" upstream/main
+          # The catalog entry lives here and uses .yaml (not .yml) — see CLAUDE.md §6.
+          MANIFEST="applications/Tools/access_audit/manifest.yaml"
+          sed -i -E "s/(commit_sha:[[:space:]]*).*/\1${RELEASE_SHA}/" "$MANIFEST"
+          if git diff --quiet "$MANIFEST"; then
+            echo "catalog commit_sha already current — nothing to submit"
+            exit 0
+          fi
+          git commit -am "Access Audit: update to ${TAG}"
+          git push -f origin "$BRANCH"
+          gh pr create \
+            --repo flipperdevices/flipper-application-catalog \
+            --base main \
+            --head "matthewkayne:${BRANCH}" \
+            --title "[Tools] Access Audit ${TAG}" \
+            --body "Updates Access Audit to ${TAG}. Pins \`commit_sha\` to \`${RELEASE_SHA}\` (release: https://github.com/matthewkayne/flipper-access-audit/releases/tag/${TAG})." \
+            || echo "PR already exists or could not be created — check manually"
