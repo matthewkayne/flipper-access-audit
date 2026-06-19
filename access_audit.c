@@ -2,7 +2,7 @@
 #include <gui/gui.h>
 #include <input/input.h>
 
-#define APP_VERSION "1.9.0"
+#define APP_VERSION "1.10.0"
 
 #include "access_audit.h"
 #include "core/observation.h"
