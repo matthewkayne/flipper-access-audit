@@ -28,6 +28,14 @@ jobs:
             sdk-channel: dev
             sdk-index-url: https://up.momentum-fw.dev/firmware/directory.json
 
+          - name: Unleashed release
+            sdk-channel: release
+            sdk-index-url: https://up.unleashedflip.com/directory.json
+
+          - name: Unleashed dev
+            sdk-channel: dev
+            sdk-index-url: https://up.unleashedflip.com/directory.json
+
     name: Build (${{ matrix.name }})
 
     steps:

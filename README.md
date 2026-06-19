@@ -113,9 +113,9 @@ The score is a **likelihood-of-compromise** rating aligned with the [OWASP Risk 
 
 ## Development
 
-- Platform: Flipper Zero (official firmware, Momentum)
+- Platform: Flipper Zero — compatible with official firmware, Momentum, and Unleashed
 - Language: C (uFBT / Flipper SDK)
-- CI: GitHub Actions, builds against official release, official dev, Momentum release, and Momentum dev SDKs on every push; clang-format and cppcheck lint on every push
+- CI: GitHub Actions, builds against official release, official dev, Momentum release, Momentum dev, Unleashed release, and Unleashed dev SDKs on every push; clang-format and cppcheck lint on every push
 
 ```
 core/
