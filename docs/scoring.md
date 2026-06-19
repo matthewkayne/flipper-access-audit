@@ -6,6 +6,8 @@ The score is a single integer in 0-100 that rates the **likelihood that a scanne
 
 This score is framed against the [OWASP Risk Rating Methodology](https://owasp.org/www-community/OWASP_Risk_Rating_Methodology), where `Risk = Likelihood × Impact`.
 
+**Reference:** <https://owasp.org/www-community/OWASP_Risk_Rating_Methodology> (also cited in the header of every generated report).
+
 - **The tool rates LIKELIHOOD only.** Every rule below is a likelihood signal — the credential lacks crypto, uses a broken/known cipher, exposes only a static identifier, or was left on default keys. The rules encode OWASP likelihood factors such as **Ease of Exploit** (passive replay vs. active attack vs. infeasible), **Awareness** (publicly documented breaks), and **Detectability** (cloning leaves no trace).
 - **IMPACT is out of scope for the tool** — it depends on what the credential protects (a turnstile vs. a vault), which only the operator knows in engagement context. Final risk for a report should combine this likelihood with the operator's impact judgement.
 
