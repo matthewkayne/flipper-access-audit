@@ -126,8 +126,8 @@ jobs:
           git fetch upstream main
           BRANCH="matthewkayne/access_audit_${TAG#v}"
           git checkout -B "$BRANCH" upstream/main
-          # The catalog entry lives here and uses .yaml (not .yml) — see CLAUDE.md §6.
-          MANIFEST="applications/Tools/access_audit/manifest.yaml"
+          # The catalog entry lives here (must be manifest.yml — see CLAUDE.md §6).
+          MANIFEST="applications/Tools/access_audit/manifest.yml"
           sed -i -E "s/(commit_sha:[[:space:]]*).*/\1${RELEASE_SHA}/" "$MANIFEST"
           if git diff --quiet "$MANIFEST"; then
             echo "catalog commit_sha already current — nothing to submit"
