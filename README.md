@@ -76,12 +76,14 @@ ufbt
 
 ### Score interpretation
 
-| Label | Score | Meaning |
+The score is a **likelihood-of-compromise** rating aligned with the [OWASP Risk Rating Methodology](https://owasp.org/www-community/OWASP_Risk_Rating_Methodology) (`Risk = Likelihood × Impact`). It rates **likelihood only** — how easily the credential can be cloned or its secret recovered. **Impact** (what the credential protects) is assessed in engagement context. Saved reports show a per-card `Likelihood` band plus an `Ease of exploit` factor and cite OWASP RRM.
+
+| Label | Score | Likelihood of compromise |
 |---|---|---|
-| HIGH RISK | 35-100 | Legacy family (MIFARE Classic, EM4100, HID iCLASS, Plus SL1) or static-replay pattern |
-| MODERATE | 20-34 | Risk indicators present; review recommended |
+| HIGH RISK | 35-100 | Legacy family (MIFARE Classic, EM4100, HID iCLASS, Plus SL1) or static-replay pattern — trivial to clone |
+| MODERATE | 20-34 | Broken/known crypto; active attack or known-key tooling needed |
 | LOW RISK | 10-19 | Minor concerns, e.g. incomplete metadata |
-| SECURE | 0-9 | Modern crypto family with no major findings |
+| SECURE | 0-9 | Modern crypto family, no public break — hard to compromise |
 
 ### Card classification depth
 
