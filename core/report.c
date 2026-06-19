@@ -346,7 +346,7 @@ bool report_save_session(const ScanSession* session) {
         fw(file, "with the OWASP Risk Rating Methodology (Risk = Likelihood x Impact); this\n");
         fw(file, "tool rates LIKELIHOOD only. IMPACT -- what the credential protects -- is\n");
         fw(file, "assessed in engagement context.\n");
-        fw(file, "Ref: https://owasp.org/www-community/OWASP_Risk_Rating_Methodology\n");
+        fw(file, "Ref: OWASP Risk Rating Methodology.\n");
 
         fw(file, "----------------------------------------\n\n");
 
