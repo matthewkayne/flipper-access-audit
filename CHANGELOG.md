@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## [1.10.1]: Scoring fixes — MIFARE Plus SL2 and FeliCa Standard
+
+### Fixed
+- **MIFARE Plus SL2 now scores MODERATE (was SECURE)**: SL2 is the weak transitional mode (AES authentication but Classic frame structure, downgrade-prone), so it is no longer treated as having protected application memory. Only SL3 (full AES + ISO14443-4) is. This matches the documented behaviour in `docs/card-types.md`
+- **FeliCa Standard now scores SECURE (was MODERATE)**: standard FeliCa has proprietary mutual authentication protecting its blocks, so it is treated as having protected memory (like DESFire); FeliCa Lite (no mutual auth) remains HIGH RISK. Matches `docs/card-types.md`
+- `ease_of_exploit` for MIFARE Plus SL2 moved from `hard` to `moderate` to match its MODERATE likelihood (downgrade/UID-replay, not a crypto break)
+- Corrected the `docs/scoring.md` "Unknown card / scan failure" worked example: a failed/incomplete read scores 20/100 but is labelled **LOW RISK** (both findings are LOW severity), not MODERATE — the label follows the highest finding severity, not the score band
+
 ## [1.10.0]: OWASP Risk Rating Methodology framing
 
 ### Changed

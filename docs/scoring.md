@@ -204,10 +204,12 @@ If both `modern_crypto` and `legacy_family` fire simultaneously (which cannot ha
 | `incomplete_evidence` fires | +10, -20% confidence |
 | `no_uid` fires | +10, -15% confidence |
 | Score | 20 |
-| Max severity | MEDIUM |
+| Max severity | LOW |
 | Confidence | 55% |
 
-**Result: MODERATE · 20/100 · 55% confidence**
+**Result: LOW RISK · 20/100 · 55% confidence**
+
+> Note the **label follows the highest-severity finding (`max_severity`), not the score band**. Here both findings are LOW severity, so the label is LOW RISK even though the score (20) sits in the MODERATE band — a failed/incomplete read shouldn't read as a moderate-risk *credential*. The score-range column in the threshold tables is a typical-case guide; the authoritative label is the dominant finding's severity. (A card whose `card_type` is genuinely `Unknown` short-circuits to 0/100 at 0% confidence.)
 
 ---
 
