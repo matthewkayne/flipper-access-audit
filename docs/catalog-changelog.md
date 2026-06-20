@@ -1,3 +1,6 @@
+## 1.10.2
+Scan-screen layout fix: the version line and prompts are evenly spaced (no longer squashed under the title divider).
+
 ## 1.10.1
 Scoring corrections: MIFARE Plus SL2 now scores MODERATE (it is the weak transitional mode — AES auth but Classic frames), and FeliCa Standard now scores SECURE (it has proprietary mutual authentication). FeliCa Lite remains HIGH RISK.
 

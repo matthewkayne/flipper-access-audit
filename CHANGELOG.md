@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [1.10.2]: Scan-screen spacing fix
+
+### Fixed
+- **Scan-screen lines re-spaced (~10px)** so the version line no longer collides with the title divider above or the "Tap card to reader" prompt below. The version, scan prompt, "Scanning…" status, mode hint, and controls row are now evenly spaced
+
 ## [1.10.1]: Scoring fixes — MIFARE Plus SL2 and FeliCa Standard
 
 ### Fixed
