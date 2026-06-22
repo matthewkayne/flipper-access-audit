@@ -418,8 +418,7 @@ size_t report_list(char names[REPORT_LIST_MAX][REPORT_NAME_LEN]) {
             /* Expect "report_YYYYMMDD_HHMMSS.txt" — 26 chars */
             size_t len = strlen(fname);
             if(len >= 26 && strncmp(fname, "report_", 7) == 0) {
-                strncpy(names[count], fname + 7, 15);
-                names[count][15] = '\0';
+                snprintf(names[count], REPORT_NAME_LEN, "%.15s", fname + 7);
                 count++;
             }
         }
@@ -471,7 +470,7 @@ bool report_load(const char* name, ReportContent* out) {
                 /* Account for a final line without trailing newline. */
                 if(read > 0 && buf[read - 1] != '\n') line_count++;
 
-                char** lines = malloc(line_count * sizeof(char*));
+                char** lines = calloc(line_count, sizeof(char*));
                 if(lines) {
                     size_t idx = 0;
                     lines[idx++] = buf;
