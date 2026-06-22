@@ -1,3 +1,6 @@
+## 1.11.0
+HID Seos detection: Seos cards (ISO14443-4A) are now identified via an AID SELECT and scored SECURE, instead of showing as a generic ISO 14443-4A card. Passive identify only — reading the PACS still needs a HID SAM.
+
 ## 1.10.2
 Scan-screen layout fix: the version line and prompts are evenly spaced (no longer squashed under the title divider).
 
