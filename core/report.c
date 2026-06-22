@@ -11,7 +11,7 @@
 #define TAG "AccessAudit"
 
 #define REPORT_DIR         "/ext/apps_data/access_audit"
-#define REPORT_APP_VERSION "1.10.2"
+#define REPORT_APP_VERSION "1.11.0"
 
 /* Write a plain C string to the file. */
 static void fw(File* f, const char* s) {
@@ -141,6 +141,8 @@ static const char* report_advice(CardType type) {
     case CardTypeHidIclassLegacy16k:
     case CardTypeHidIclassLegacy32k:
         return "iCLASS DES/3DES master key is publicly known. Upgrade to iCLASS SE/Seos.";
+    case CardTypeSeos:
+        return "HID Seos (AES secure element). Strong; ensure the reader has legacy/Prox fallback disabled.";
     case CardTypeFelica:
         return "Verify FeliCa application crypto is properly configured.";
     case CardTypeFeliCaLite:
