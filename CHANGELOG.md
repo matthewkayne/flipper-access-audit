@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [1.11.1]: Clarify iCLASS scan mode
+
+### Changed
+- **iCLASS scan-mode prompt clarified**: the prompt now reads `Tap iCLASS SE/Legacy...` with a `Seos? use NFC mode` hint below it. iCLASS Legacy/SE are on ISO 15693 (iCLASS mode); Seos is ISO 14443-4A (NFC mode) — the shared "iCLASS" branding made the mode ambiguous
+
 ## [1.11.0]: HID Seos detection
 
 ### Added
