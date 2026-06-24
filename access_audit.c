@@ -2,7 +2,7 @@
 #include <gui/gui.h>
 #include <input/input.h>
 
-#define APP_VERSION "1.11.1"
+#define APP_VERSION "1.11.2"
 
 #include "access_audit.h"
 #include "core/observation.h"
@@ -133,16 +133,9 @@ static void
 }
 
 static const char* risk_label(Severity severity) {
-    switch(severity) {
-    case SeverityHigh:
-        return "HIGH RISK";
-    case SeverityMedium:
-        return "MODERATE";
-    case SeverityLow:
-        return "LOW RISK";
-    default:
-        return "SECURE";
-    }
+    /* Single source of truth in core/scoring.c so the screen verdict and the
+     * report's bracketed verdict can never drift. */
+    return verdict_label(severity);
 }
 
 static void access_audit_draw_callback(Canvas* canvas, void* context) {
