@@ -2,7 +2,7 @@ sourcecode:
   type: git
   location:
     origin: https://github.com/matthewkayne/flipper-access-audit.git
-    commit_sha: 4ac716b8282ac0c8e8f3f05d95df04d2dd433526
+    commit_sha: 11ebe8a5f7525eae09821e03d2a3c8d1cc749516
 author: Matthew Kayne
 description: "@docs/catalog-description.md"
 changelog: "@docs/catalog-changelog.md"
