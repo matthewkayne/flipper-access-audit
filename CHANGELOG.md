@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## [1.13.0]: Deeper default-credential checks
+
+### Added
+- **MIFARE Classic all-sector default-key sweep**: when sector 0 still uses a default key, the scan now sweeps every sector and reports `N/M sectors use default keys` (screen + report), instead of only flagging sector 0. A re-keyed sector 0 (managed card) still returns fast — the deep sweep is gated on sector 0 being default. Closes #34
+- **MIFARE Ultralight / NTAG factory-password check**: tests the factory password `FFFFFFFF` and reports when it is accepted (`memory effectively unprotected`). **Config-gated and non-destructive**: the password is only sent when the card exposes its config and has no failed-auth lockout (`AUTHLIM == 0`), so a wrong guess can never trip a lockout. Closes #33
+- Expanded the MIFARE Classic default-key dictionary to the full mfoc/Proxmark public set (added `4D3A99C351DD` and `1A982C7E459A`)
+
+### Changed
+- The result screen's bottom row always shows the controls hint, now corrected to `OK:rescan  Back:save` (Back saves the session report). All findings — default keys `N/M`, factory password, password-locked memory — are recorded in the saved report
+
 ## [1.12.0]: Protected Ultralight/NTAG support + air-interface labels
 
 ### Fixed
