@@ -2,7 +2,7 @@
 #include <gui/gui.h>
 #include <input/input.h>
 
-#define APP_VERSION "1.13.0"
+#define APP_VERSION "1.13.1"
 
 #include "access_audit.h"
 #include "core/observation.h"
@@ -485,6 +485,7 @@ int32_t access_audit_app(void* p) {
                         else
                             app->scan_mode = ScanModeNfc;
                         access_audit_start_scanning(app);
+                        view_port_update(app->view_port);
                     } else if(event.input.key == InputKeyLeft) {
                         access_audit_stop_scanning(app);
                         if(app->scan_mode == ScanModeNfc)
