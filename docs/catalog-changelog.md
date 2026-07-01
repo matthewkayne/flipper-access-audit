@@ -1,3 +1,6 @@
+## 1.13.1
+Fixes a crash when reading some 125 kHz cards (protocols with more than 10 bytes of data, such as extended HID or Indala). Also fixes the scan screen so both the left and right arrows visibly cycle NFC/RFID/iCLASS.
+
 ## 1.13.0
 Deeper default-credential checks. MIFARE Classic: when sector 0 still uses a default key, the scan now sweeps every sector and reports how many of N sectors use default keys (the dictionary was also expanded to the full mfoc/Proxmark public set). MIFARE Ultralight and NTAG: the scan now tests the factory password FFFFFFFF and reports when it is accepted, but only when the card exposes its config and has no failed-auth lockout configured, so the test can never lock a card. The result screen keeps its controls hint at all times; all findings are written to the saved report.
 

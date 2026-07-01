@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## [1.13.1]: Fix 125 kHz read crash
+
+### Fixed
+- **Crash reading some 125 kHz cards**: `protocol_dict_get_data()` requires the destination buffer to hold the protocol's full data size, but the reader passed a size clamped to the UID field — so any 125 kHz protocol with more than 10 bytes of data (extended HID, Indala, etc.) aborted the firmware. The reader now reads into a full-size buffer and keeps the first bytes as the UID
+- **Scan screen: the right arrow now redraws** — both left and right arrows visibly cycle NFC/RFID/iCLASS (the right arrow already changed the mode but was missing a screen refresh, so it looked inert)
+
 ## [1.13.0]: Deeper default-credential checks
 
 ### Added
